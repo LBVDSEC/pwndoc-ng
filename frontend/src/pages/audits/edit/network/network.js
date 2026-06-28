@@ -4,7 +4,7 @@ import Breadcrumb from 'components/breadcrumb';
 
 import AuditService from '@/services/audit';
 import Utils from '@/services/utils';
-
+import DataService from '@/services/data';
 import { $t } from '@/boot/i18n'
 
 export default {
@@ -18,6 +18,23 @@ export default {
             auditId: null,
             audit: {
                 // scope: []
+            },
+            audit: {
+                creator: {},
+                name: "",
+                auditType: "",
+                client: {},
+                company: {},
+                collaborators: [],
+                reviewers: [],
+                date: "",
+                date_start: "",
+                date_end: "",
+                scope: [],
+                language: "",
+                template: "",
+                customFields: [],
+                approvals: []
             },
             auditOrig: {},
             // List of available targets for select options
@@ -49,8 +66,11 @@ export default {
 
     mounted: function() {
         this.auditId = this.$route.params.auditId;
-        this.getAuditNetwork();
-        
+	// Load general audit data first (including scopes), then network data
+        this.getAuditGeneral()
+        .then(() => {
+            return this.getAuditNetwork();
+        });
         this.$socket.emit('menu', {menu: 'network', room: this.auditId});
 
         // save on ctrl+s
@@ -90,24 +110,36 @@ export default {
         _listener: function(e) {
             if ((window.navigator.platform.match("Mac") ? e.metaKey : e.ctrlKey) && e.keyCode == 83) {
                 e.preventDefault();
-                if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT)
+                // Only trigger save if we're in the network audit context
+                if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT && 
+                    this.$route.name === 'network')
                     this.updateAuditNetwork();
             }
         },
 
         // Get Audit datas from uuid
         getAuditNetwork: function() {
-            AuditService.getAuditNetwork(this.auditId)
+	    return AuditService.getAuditNetwork(this.auditId)
             .then((data) => {
                 this.audit = data.data.datas;
-                // Object.assign(this.audit, data.data.datas);
+                // Merge network audit data with existing audit data, preserving general data like scopes
+		Object.assign(this.audit, data.data.datas);
                 this.auditOrig = this.$_.cloneDeep(this.audit);
             })
             .catch((err) => {
                 console.log(err)
             })
         },
-
+        getAuditGeneral: function() {
+	    return AuditService.getAuditGeneral(this.auditId)
+            .then((data) => {
+                this.audit = data.data.datas;
+		this.auditOrig = this.$_.cloneDeep(this.audit);
+            })
+            .catch((err) => {              
+                console.log(err.response)
+            })
+        },
         // Save Audit
         updateAuditNetwork: function() {
             AuditService.updateAuditNetwork(this.auditId, this.audit)
@@ -146,9 +178,29 @@ export default {
         },
 
         updateScopeHosts: function(scope) {
+            if (!this.selectedTargets[scope.name]) {
+                console.error(`Scope "${scope.name}" not found in selectedTargets.`);
+                return;
+            }
             for (var i=0; i<this.selectedTargets[scope.name].length; i++) {
                 scope.hosts.push(this.selectedTargets[scope.name][i].host);
             }
+        },
+
+        // Method to handle host click
+        onHostClick: function(host, scope) {
+            // Handle different host structures
+            let hostObj = host;
+            if (typeof host === 'string') {
+                // If host is just a string (IP), create a basic object
+                hostObj = {
+                    ip: host,
+                    hostname: 'Unknown',
+                    services: []
+                };
+            }
+            
+            this.currentHost = hostObj;
         },
 
         // Function for helping parsing Nmap XML

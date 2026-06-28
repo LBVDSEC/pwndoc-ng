@@ -24,25 +24,29 @@ export default {
             companies: [],
             // Languages availbable
             languages: [],
+            showCreateModal: false,
             // Datatable headers
             dtHeaders: [
-                {name: 'name', label: $t('name'), field: 'name', align: 'left', sortable: true},
-                {name: 'language', label: $t('language'), field: 'language', align: 'left', sortable: true},
-                {name: 'company', label: $t('company'), field: row => (row.company)?row.company.name:'', align: 'left', sortable: true},
-                {name: 'users', label: $t('participants'), align: 'left', sortable: true},
-                {name: 'date', label: $t('date'), field: row => row.createdAt.split('T')[0], align: 'left', sortable: true},
-                {name: 'connected', label: '', align: 'left', sortable: false},
-                {name: 'reviews', label: '', align: 'left', sortable: false},
-                {name: 'action', label: '', field: 'action', align: 'left', sortable: false},
-            ],
+                { name: 'name', label: $t('name'), field: 'name', align: 'left', sortable: true },
+                { name: 'company', label: $t('company'), field: row => row.company.name, align: 'left', sortable: true },
+                { name: 'language', label: $t('language'), field: 'language', align: 'left', sortable: true },
+                { name: 'users', label: $t('participants'), field: 'users', align: 'left', sortable: false },
+                { name: 'date', label: $t('date'), field: 'date', align: 'left', sortable: true },
+                { name: 'connected', label: $t('usersConnected'), field: 'connected', align: 'left', sortable: false },
+                { name: 'reviews', label: $t('reviews'), field: 'reviews', align: 'left', sortable: false },
+                { name: 'action', label: '', field: 'action', align: 'left', sortable: false }
+              ],              
             visibleColumns: ['name', 'language', 'company', 'users', 'date', 'action'],
             // Datatable pagination
             pagination: {
                 page: 1,
                 rowsPerPage: 25,
                 sortBy: 'date',
-                descending: true
+                descending: false,
+                pagesNumber: 1
             },
+
+            
             rowsPerPageOptions: [
                 {label:'25', value:25},
                 {label:'50', value:50},
@@ -55,9 +59,15 @@ export default {
             displayConnected: false,
             displayReadyForReview: false,
             // Errors messages
-            errors: {name: '', language: '', auditType: ''},
+            errors: {name: '', language: '', auditType: '', selectedAudit: ''},
             // Selected or New Audit
-            currentAudit: {name: '', language: '', auditType: ''}
+            currentAudit: {name: '', language: '', auditType: ''},
+            // Clone existing report toggle
+            cloneExistingReport: false,
+            // Selected audit to clone
+            selectedAuditToClone: null,
+            // Available audits for cloning
+            availableAuditsForCloning: []
         }
     },
 
@@ -78,6 +88,7 @@ export default {
         this.getLanguages();
         this.getAuditTypes();
         this.getCompanies();
+        this.getAvailableAuditsForCloning();
     },
 
     methods: {
@@ -112,34 +123,106 @@ export default {
             })
         },
 
-        getAudits: function() {
-            this.loading = true
-            AuditService.getAudits({findingTitle: this.search.finding})
+        // Get available audits for cloning
+        getAvailableAuditsForCloning: function() {
+            AuditService.getAudits()
             .then((data) => {
-                this.audits = data.data.datas
-                this.loading = false
+                this.availableAuditsForCloning = data.data.datas;
             })
             .catch((err) => {
                 console.log(err)
             })
         },
 
+        // Filter audits for cloning
+        filterAuditsForCloning: function(val, update) {
+            if (val === '') {
+                update(() => this.availableAuditsForCloning = this.audits)
+                return
+            }
+            update(() => {
+                const needle = val.toLowerCase()
+                this.availableAuditsForCloning = this.audits.filter(v => 
+                    v.name.toLowerCase().indexOf(needle) > -1 ||
+                    (v.company && v.company.name && v.company.name.toLowerCase().indexOf(needle) > -1) ||
+                    v.language.toLowerCase().indexOf(needle) > -1
+                )
+            })
+        },
+
+        getAudits: function() {
+            this.loading = true
+            AuditService.getAudits({findingTitle: this.search.finding})
+            .then((data) => {
+                this.audits = data.data.datas
+      
+                this.loading = false
+            })
+            .catch((err) => {
+                console.log(err)
+            })
+        },
+        formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('fr-FR');
+          },
         createAudit: function() {
             this.cleanErrors();
-            if (!this.currentAudit.name)
-                this.errors.name = "Name required";
-            if (!this.currentAudit.language)
-                this.errors.language = "Language required";
-            if (!this.currentAudit.auditType)
-                this.errors.auditType = "Assessment required";
-                
             
-            if (this.errors.name || this.errors.language || this.errors.auditType)
-                return;
+            if (this.cloneExistingReport) {
+                // Mode clonage
+                if (!this.currentAudit.name)
+                    this.errors.name = "Name required";
+                if (!this.selectedAuditToClone)
+                    this.errors.selectedAudit = "Please select an audit to clone";
+                
+                if (this.errors.name || this.errors.selectedAudit)
+                    return;
 
+                // Create a cloned audit
+                this.createClonedAudit();
+            } else {
+                // Normal creation mode
+                this.currentAudit.auditType = this.currentAudit.auditType.name;
+                if (!this.currentAudit.name)
+                    this.errors.name = "Name required";
+                if (!this.currentAudit.language)
+                    this.errors.language = "Language required";
+                if (!this.currentAudit.auditType)
+                    this.errors.auditType = "Assessment required";
+                    
+                if (this.errors.name || this.errors.language || this.errors.auditType)
+                    return;
+
+                this.createNormalAudit();
+            }
+        },
+
+        // Create a normal audit
+        createNormalAudit: function() {
             AuditService.createAudit(this.currentAudit)
             .then((response) => {
-                this.$refs.createModal.hide();
+                this.showCreateModal = false;
+                this.getAudits();
+                this.$router.push("/audits/" + response.data.datas.audit._id)
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response.data.datas,
+                    color: 'negative',
+                    textColor:'white',
+                    position: 'top-right'
+                })
+            })
+        },
+
+        // Create a cloned audit
+        createClonedAudit: function() {
+            AuditService.createClonedAudit(this.selectedAuditToClone, this.currentAudit.name)
+            .then((response) => {
+                this.showCreateModal = false;
+                this.getAudits();
                 this.$router.push("/audits/" + response.data.datas.audit._id)
             })
             .catch((err) => {
@@ -251,6 +334,7 @@ export default {
             this.errors.name = '';
             this.errors.language = '';
             this.errors.auditType = '';
+            this.errors.selectedAudit = '';
         },
 
         cleanCurrentAudit: function() {
@@ -258,6 +342,8 @@ export default {
             this.currentAudit.name = '';
             this.currentAudit.language = '';
             this.currentAudit.auditType = '';
+            this.cloneExistingReport = false;
+            this.selectedAuditToClone = null;
         },
 
         // Convert language locale of audit for table display
@@ -303,7 +389,8 @@ export default {
         },
 
         dblClick: function(evt, row) {
-            this.$router.push('/audits/'+row._id)      
+            if(typeof row !== 'undefined' && typeof row._id !== 'undefined') this.$router.push('/audits/'+row._id+'/general')
+            else if(typeof evt !== 'undefined' && typeof evt._id !== 'undefined') this.$router.push('/audits/'+evt._id+'/general')
         }
     }
 }

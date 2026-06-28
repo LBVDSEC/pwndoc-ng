@@ -17,6 +17,7 @@ export default {
             // Loading state
             loading: true,
             // Datatable headers
+
             dtHeaders: [
                 {name: 'username', label: $t('username'), field: 'username', align: 'left', sortable: true},
                 {name: 'firstname', label: $t('firstname'), field: 'firstname', align: 'left', sortable: true},
@@ -121,7 +122,7 @@ export default {
                 this.errors.firstname = $t('msg.firstnameRequired');
             if (!this.currentCollab.username)
                 this.errors.username = $t('msg.usernameRequired');
-            if (!Utils.strongPassword(this.currentCollab.password))
+            if (this.currentCollab.password > 0 && !Utils.strongPassword(this.currentCollab.password))
                 this.errors.password = $t('msg.passwordComplexity')
 
             if (this.errors.lastname || this.errors.firstname || this.errors.username || this.errors.password)
@@ -152,6 +153,7 @@ export default {
             DataService.getRoles()
             .then((data) => {
                 this.roles = data.data.datas
+           
             })
             .catch((err) => {
                 console.log(err)

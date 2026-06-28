@@ -11,6 +11,7 @@ import TemplateService from '@/services/template'
 import { $t } from '@/boot/i18n'
 
 export default {
+    
     data: () => {
         return {
             UserService: UserService,
@@ -49,7 +50,7 @@ export default {
                 {label: $t('descending'), value: 'desc'}
             ],
 
-            customFields: [],
+            customFields: [ ],
             newCustomField: {
                 label: "", 
                 fieldType: "", 
@@ -109,11 +110,12 @@ export default {
     },
 
     computed: {
-        filteredCustomFields() {
-            return this.customFields.filter(field =>
-                (field.display === this.newCustomField.display && field.displayList.every(e => this.newCustomField.displayList.indexOf(e) > -1))
-            )
-        },
+
+      
+        vulnTypesFiltered() {
+            console.log('Calcul vulnTypesFiltered', this.newVulnType.locale);
+            return this.vulnTypes.filter(vuln => vuln.locale === this.newVulnType.locale);
+          },
 
         newCustomFieldLangOptions() {
             return this.newCustomField.options.filter(e => e.locale === this.cfLocale)
@@ -298,6 +300,7 @@ export default {
 
 /* ===== VULNERABILITY TYPES ===== */
 
+
         // Get available vulnerability types
         getVulnerabilityTypes: function() {
             DataService.getVulnerabilityTypes()
@@ -308,7 +311,10 @@ export default {
                 console.log(err)
             })
         },
-
+        startEditingVulnTypes() {
+            this.editVulnTypes = this.vulnTypesFiltered.map(v => ({ ...v })); // Independent copy
+            this.editVulnType = true;
+          },
         // Create vulnerability type
         createVulnerabilityType: function() {
             this.cleanErrors();
@@ -341,7 +347,8 @@ export default {
 
         // Update Audit Types
         updateVulnTypes: function() {
-            DataService.updateVulnTypes(this.editVulnTypes)
+            var dataAll = [...this.vulnTypes.filter(x => x.locale !== this.newVulnType.locale),...this.editVulnTypes]
+            DataService.updateVulnTypes(dataAll)
             .then((data) => {
                 this.getVulnerabilityTypes()
                 this.editVulnType = false
@@ -460,17 +467,43 @@ export default {
         },
 
 /* ===== CUSTOM FIELDS ===== */
+getFieldValue(field) {
+    const localeEntry = field.text.find((e) => e.locale === this.cfLocale);
+    if (!localeEntry) {
+      // If no entry for the language, create a new one
+      const newEntry = { locale: this.cfLocale, value: field.fieldType === 'checkbox' || field.fieldType === 'select-multiple' ? [] : '' };
+      field.text.push(newEntry);
+      return newEntry.value;
+    }
+    return localeEntry.value;
+  },
 
+  // Update the field value according to the selected language
+  setFieldValue(field, newValue) {
+    const localeEntry = field.text.find((e) => e.locale === this.cfLocale);
+    if (localeEntry) {
+      localeEntry.value = newValue;
+    } else {
+      // Safety: normally unnecessary since getFieldValue already handles this
+      field.text.push({ locale: this.cfLocale, value: newValue });
+    }
+  },
+
+  // Options pour les checkbox/radio/select
+  getOptionsGroup(options) {
+    return options.filter((e) => e.locale === this.cfLocale).map((e) => ({ label: e.value, value: e.value }));
+  },
         // Get available custom fields
         getCustomFields: function() {
             DataService.getCustomFields()
-            .then((data) => {
-                this.customFields = data.data.datas.filter(e => e.display)
-            })
-            .catch((err) => {
-                console.log(err)
-            })
-        },
+              .then((data) => {
+                this.customFields = data.data.datas
+                console.log(this.customFields);
+
+              })
+              .catch((err) => console.error(err));
+          },
+          
 
         // Create custom field
         createCustomField: function() {
@@ -607,7 +640,6 @@ export default {
             this.newCustomOption = ""
         },
 
-        // Remove option of options based on index of computed lang Option
         removeCustomFieldOption: function(options, option) {
             var index = options.findIndex(e => e.locale === option.locale && e.value === option.value)
             options.splice(index, 1)

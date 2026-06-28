@@ -266,6 +266,7 @@ But in order to apply styles to the data from HTML editors, they must be defined
 | H6         | Heading6      |
 | code (<>)  | CodeChar      |
 | code block | Code          |
+| Hyperlink  | PwndocLink    |
 
 For `bullet list` and `ordered list` they must be correctly set in the *numbering.xml* file of the Docx Template.
 
@@ -285,6 +286,25 @@ There should now be abstractNum definition for each one.
 ## Filters
 
 Filters allow to apply functions on Audit data values.
+
+### Charts
+
+Creates a chart (pie chart or bar chart) linked to findings.
+
+For the moment, the pie chart can only be used with severity. The bar chart can be used with any finding field.
+- *Colors* are in hex format without the "#" (FF5522)
+- *Label size* are in word's format (15pt = 1500)
+
+> Use in template document
+>```
+// Examples of simple pie chart:
+{@findings | barChart:'field':'title':'barColor':'labelColor':'labelSize'}
+{@findings | pieChart:'My bar chart':'000000':'FF0000':'FFA500':'FFFF00'}
+// Examples of bar chart:
+{@findings | barChart:'field':'title':'barColor':'labelColor':'labelSize'}
+{@findings | barChart:'vulnType':'My bar chart'}
+{@findings | barChart:'cvss.baseSeverity':'My chart':'FF0000':'AABB00':'1500'}
+>```
 
 ### bookmarkCreate
 
@@ -489,11 +509,11 @@ Takes a multilines input strings (either raw or simple HTML paragraphs) and retu
 
 ### linkTo
 
-Takes a text to display and a URL to generate a hyperlink.
+Takes a text to display and a URL to generate a hyperlink. To apply a custom style to hyperlinks, add a style named "PwndocLink" in word templates.
 
 > Use in template document
 >```
-{@cvss.vectorString | linkTo: 'https://www.first.org/cvss/calculator/3.1#' + cvss.vectorString | p}
+{@cvss.vectorString | linkTo: 'https://www.first.org/cvss/calculator/3.1#' + cvss.vectorString}
 >```
 
 ### loopObject
@@ -521,7 +541,7 @@ Lowercases input.
 
 Creates a clickable "mailto:" link, assumes that input is an email address if no other address has been provided as parameter.
 
-The character style "Hyperlink" is applied to the generated hyperlink.
+The character style "PwndocLink" is applied to the generated hyperlink.
 
 > Use in template document
 >```

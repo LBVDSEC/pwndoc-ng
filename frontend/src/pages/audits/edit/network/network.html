@@ -1,47 +1,50 @@
 <div>
-    <breadcrumb buttons :title="`${$parent.audit.name} (${$parent.audit.auditType || 'Audit Type not set'})`" :state="parentState" :approvals="parentApprovals">
-    <div slot="buttons" v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT">
-        <q-btn-dropdown 
-        class="q-mr-sm"
-        :label="$t('import')"
-        no-caps
-        >
-            <q-list>
-                <q-item clickable @click="$refs.nmapFile.click()">
-                    <q-item-section>
-                        <q-item-label>
-                            Nmap
-                            <input
-                            type="file"
-                            ref="nmapFile"
-                            accept=".xml"
-                            class="hidden"
-                            @change="importNetworkScan($event.target.files, 'nmap')"
-                            />
-                        </q-item-label>
-                    </q-item-section>
-                </q-item>
-                <q-separator />
-                <q-item clickable @click="$refs.nessusFile.click()">
-                    <q-item-section>
-                        <q-item-label>
-                            Nessus
-                            <input
-                            type="file"
-                            ref="nessusFile"
-                            accept=".nessus"
-                            class="hidden"
-                            @change="importNetworkScan($event.target.files, 'nessus')"
-                            />
-                        </q-item-label>
-                    </q-item-section>
-                </q-item>
-            </q-list>
+    <breadcrumb
+    buttons
+    :title="audit?.name ? `${audit.name} (${audit.auditType || $t('msg.auditTypeNotSet')})` : 'Loading...'"
+    :state="parentState"
+    :approvals="parentApprovals"
+  >
+    <template v-slot:buttons>
+      <div >
+        <q-btn-dropdown class="q-mr-sm" :label="$t('import')" no-caps>
+          <q-list>
+            <q-item clickable @click="$refs.nmapFile.click()">
+              <q-item-section>
+                <q-item-label>
+                  Nmap
+                  <input
+                    type="file"
+                    ref="nmapFile"
+                    accept=".xml"
+                    class="hidden"
+                    @change="importNetworkScan($event.target.files, 'nmap')"
+                  />
+                </q-item-label>
+              </q-item-section>
+            </q-item>
+            <q-separator />
+            <q-item clickable @click="$refs.nessusFile.click()">
+              <q-item-section>
+                <q-item-label>
+                  Nessus
+                  <input
+                    type="file"
+                    ref="nessusFile"
+                    accept=".nessus"
+                    class="hidden"
+                    @change="importNetworkScan($event.target.files, 'nessus')"
+                  />
+                </q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
         </q-btn-dropdown>
-        <q-btn color="positive" :label="$t('btn.save')+' (ctrl+s)'" no-caps @click="updateAuditNetwork" />
-    </div>
-</breadcrumb>
-
+        <q-btn color="positive" :label="$t('btn.save') + ' (ctrl+s)'" no-caps @click="updateAuditNetwork" />
+      </div>
+    </template>
+  </breadcrumb>
+  
 <div class="row q-col-gutter-md q-pa-md">
     <div class="col-md-6">
         <q-card>
@@ -64,19 +67,19 @@
                                 <q-btn round dense flat icon="add" @click.close="updateScopeHosts(scope)" />
                               </template>
                             </q-select>
-                            <div v-for="(host, index) of scope.hosts">
+                            <div v-for="(host, index) of scope.hosts" :key="`${scope.name}-${host.ip || host}-${index}`" 
+                                 @click="onHostClick(host, scope)"
+                                 class="cursor-pointer">
                             <q-chip 
-                            :key="host.ip"
                             color="blue-grey-7"
                             text-color="white"
                             dense
                             square
-                            class="col-md-6 cursor-pointer"
-                            @click.native="currentHost = $_.cloneDeep(host)"
+                            class="col-md-6"
                             removable
                             @remove="scope.hosts.splice(index, 1)"
                             >
-                            {{host.ip}}
+                            {{host.ip || host}}
                             </q-chip>
                         </div>
                     </div>
@@ -86,9 +89,9 @@
     <div v-if="currentHost !== null" class="col-md-6">
         <q-table
         :title="`${currentHost.ip} (${currentHost.hostname})`"
-        :data="currentHost.services"
+        :rows="currentHost.services"
         :columns="dtHostHeaders"
-        :pagination.sync="hostPagination"
+        v-model:pagination="hostPagination"
         row-key="port"
         />
     </div>

@@ -26,7 +26,7 @@ export default {
             pagination: {
                 page: 1,
                 rowsPerPage: 25,
-                sortBy: 'name'
+                sortBy: 'name',
             },
             rowsPerPageOptions: [
                 {label:'25', value:25},
@@ -36,7 +36,7 @@ export default {
             ],
             // Search filter
             search: {name: '', ext: ''},
-            customFilter: Utils.customFilter,
+            //customFilter: Utils.customFilter,
             // Errors messages
             errors: {name: '', file: ''},
             // Selected or New Vulnerability
@@ -69,7 +69,29 @@ export default {
                 console.log(err)
             })
         },
-
+        customFilter(rows, terms, cols, getCellValue) {
+            // Check if terms is empty
+            if (!terms || (terms.name === '' && terms.ext === '')) {
+              return rows;
+            }
+            
+            return rows.filter(row => {
+              // Check name
+              if (terms.name && row.name) {
+                const nameMatch = String(row.name).toLowerCase().includes(String(terms.name).toLowerCase());
+                if (!nameMatch) return false;
+              }
+              
+              // Check ext
+              if (terms.ext && row.ext) {
+                const extMatch = String(row.ext).toLowerCase().includes(String(terms.ext).toLowerCase());
+                if (!extMatch) return false;
+              }
+              
+              return true;
+            });
+          },
+          
         downloadTemplate: function(row) {
             TemplateService.downloadTemplate(row._id)
             .then((data) => {

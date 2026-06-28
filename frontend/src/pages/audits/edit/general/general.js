@@ -1,3 +1,4 @@
+import { nextTick } from 'vue';
 import { Notify, Dialog } from 'quasar';
 
 import Breadcrumb from 'components/breadcrumb';
@@ -109,12 +110,22 @@ export default {
             .onOk(() => next())
         }
     },
-
+    watch: {
+        'audit.company': {
+          handler(newCompany, oldCompany) {
+            this.filterClients();
+          },
+          deep: true, // in case the object is modified deeply
+        },
+      },
+      
     methods: {
         _listener: function(e) {
             if ((window.navigator.platform.match("Mac") ? e.metaKey : e.ctrlKey) && e.keyCode == 83) {
                 e.preventDefault();
-                if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT)
+                // Only trigger save if we're in the general audit context
+                if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT && 
+                    this.$route.name === 'general')
                     this.updateAuditGeneral();
             }
         },
@@ -141,7 +152,7 @@ export default {
         // Save Audit
         updateAuditGeneral: function() {
             Utils.syncEditors(this.$refs)
-            this.$nextTick(() => {
+            nextTick(() => {
                 if (this.$refs.customfields && this.$refs.customfields.requiredFieldsEmpty()) {
                     Notify.create({
                         message: $t('msg.fieldRequired'),
@@ -169,6 +180,8 @@ export default {
                         position: 'top-right'
                     })
                 })
+            }).catch((err) => {
+                console.error('Error in updateAuditGeneral nextTick:', err);
             })
         },
 
@@ -259,7 +272,9 @@ export default {
 
         // Filter client options when selecting company
         filterClients: function(step) {
-            if (step !== 'init') this.audit.client = null // only reset client when company is updated
+ 
+            //if (step !== 'init') this.audit.client = null // only reset client when company is updated
+            
             if (this.audit.company && this.audit.company.name) {
                 this.selectClientsFromCompany = [];
                 this.clients.map(client => {
@@ -272,18 +287,14 @@ export default {
 
         // Set Company when selecting client 
         setCompanyFromClient: function(value) {
-            if (value && !value.company) {
-                this.audit.company = null;
-            }
-            else if (value) {
+            console.log(value)
+            if (value && value.company) {
                 for (var i=0; i<this.companies.length; i++) {
                     if (this.companies[i].name === value.company.name) {
                         this.audit.company = this.$_.clone(this.companies[i]);
                         break;
                     }
                 }
-            } else {
-              this.audit.client = null
             }
         },
 

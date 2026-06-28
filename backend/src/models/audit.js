@@ -289,7 +289,7 @@ AuditSchema.statics.deleteOutdatedReportAutomation = (days) => {
  // Delete audit
 AuditSchema.statics.delete = (isAdmin, auditId, userId) => {
     return new Promise((resolve, reject) => {
-        var query = Audit.findOneAndRemove({_id: auditId})
+        var query = Audit.findOneAndDelete({_id: auditId})
         if (!isAdmin)
             query.or([{creator: userId}])
         return query.exec()
@@ -823,6 +823,50 @@ AuditSchema.statics.updateApprovals = (isAdmin, auditId, userId, update) => {
         })
         .catch((err) => {
             reject(err)
+        })
+    });
+}
+
+// Clone existing audit
+AuditSchema.statics.clone = (auditId, newName, userId) => {
+    return new Promise((resolve, reject) => {
+        Audit.findById(auditId)
+        .populate('company')
+        .populate('client')
+        .populate('collaborators')
+        .populate('reviewers')
+        .populate('template')
+        .exec()
+        .then((sourceAudit) => {
+            if (!sourceAudit)
+                throw({fn: 'NotFound', message: 'Source audit not found'});
+            
+            // Create new audit object with cloned data
+            var clonedAudit = new Audit({
+                name: newName,
+                auditType: sourceAudit.auditType,
+                language: sourceAudit.language,
+                company: sourceAudit.company,
+                client: sourceAudit.client,
+                collaborators: sourceAudit.collaborators,
+                reviewers: sourceAudit.reviewers,
+                template: sourceAudit.template,
+                scope: sourceAudit.scope,
+                findings: sourceAudit.findings,
+                sections: sourceAudit.sections,
+                customFields: sourceAudit.customFields,
+                sortFindings: sourceAudit.sortFindings,
+                creator: userId,
+                state: 'EDIT' // Reset state to EDIT for new audit
+            });
+            
+            return clonedAudit.save();
+        })
+        .then((clonedAudit) => {
+            resolve(clonedAudit);
+        })
+        .catch((err) => {
+            reject(err);
         })
     });
 }

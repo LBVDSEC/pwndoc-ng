@@ -5,6 +5,7 @@ var expressions = require('angular-expressions');
 var ImageModule = require('docxtemplater-image-module-pwndoc');
 var sizeOf = require('image-size');
 var customGenerator = require('./custom-generator');
+var chartGenerator = require('./chart-generator');
 var utils = require('./utils');
 var html2ooxml = require('./html2ooxml');
 var _ = require('lodash');
@@ -13,16 +14,36 @@ var Settings = require('mongoose').model('Settings');
 var CVSS31 = require('./cvsscalc31.js');
 var translate = require('../translate')
 var $t
+var pieChartXML
+var barChartXML
+var zip
+var numberOfPieChart = 0
+var numberOfBarChart = 0
+var chartRelXml = ''
+var chartContentTypeXml = ''
+var globalAbstractNumId = null // Global variable to share abstractNumId between all sections
+var abstractNumCreated = false // Flag to avoid creating abstractNum multiple times
+var bulletDefinitionCreated = false // Flag to avoid creating bullet definition multiple times
+var globalBulletNumId = null // Global variable to store dynamic bullet ID
+
+const encodeHTMLEntities = s => s.replace(/[\u00A0-\u9999<>&]/g, i => '&#'+i.charCodeAt(0)+';')
 
 // Generate document with docxtemplater
 async function generateDoc(audit, validationreport=false) {
+
+    // Reset global variables for each document generation
+    globalAbstractNumId = null;
+    abstractNumCreated = false;
+    bulletDefinitionCreated = false;
+    globalBulletNumId = null;
+
     if (validationreport)
         var templatePath = `${__basedir}/../report-templates/${audit.validationtemplate.name}.${audit.validationtemplate.ext || 'docx'}`
     else
         var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${audit.template.ext || 'docx'}`
     var content = fs.readFileSync(templatePath, "binary");
 
-    var zip = new PizZip(content);
+    zip = new PizZip(content);
 
     translate.setLocale(audit.language)
     $t = translate.translate
@@ -96,11 +117,16 @@ async function generateDoc(audit, validationreport=false) {
     catch(err) {
         console.log(err)
     }
-    var doc = new Docxtemplater().attachModule(imageModule).loadZip(zip).setOptions({parser: parser, paragraphLoop: true});
+    var doc = new Docxtemplater(zip, {
+        modules: [imageModule],
+        parser: parser,
+        paragraphLoop: true
+    });
+    
     customGenerator.apply(preppedAudit);
-    doc.setData(preppedAudit);
+
     try {
-        doc.render();
+        doc.render(preppedAudit);
     }
     catch (error) {
         if (error.properties.id === 'multi_error') {
@@ -122,6 +148,41 @@ async function generateDoc(audit, validationreport=false) {
             throw error
         }
     }
+
+    // Include refs in document
+    const relsPath = "word/_rels/document.xml.rels";
+    let relsXml = zip.files[relsPath].asText();
+    relsXml = relsXml.replace("</Relationships>", `${chartRelXml}</Relationships>`);
+
+
+    zip.file(relsPath, relsXml);
+    
+
+
+    const piechartStyleXmlPath = "word/charts/pieChart-style-pwndoc.xml";
+    const pieChartcolorsXmlPath = "word/charts/pieChart-colors-pwndoc.xml";
+
+    const barChartstyleXmlPath = "word/charts/barChart-style-pwndoc.xml";
+    const barChartcolorsXmlPath = "word/charts/barChart-colors-pwndoc.xml";
+
+    const pieChartstyleXml = `<c:chartStyle xmlns:c="http://schemas.microsoft.com/office/drawing/2012/chartStyle"/>`;
+    const pieChartcolorsXml = `<c:chartColors xmlns:c="http://schemas.microsoft.com/office/drawing/2012/chartColor"/>`;
+
+    const barChartstyleXml = `<c:chartStyle xmlns:c="http://schemas.microsoft.com/office/drawing/2012/chartStyle"/>`;
+    const barChartcolorsXml = `<c:chartColors xmlns:c="http://schemas.microsoft.com/office/drawing/2012/chartColor"/>`;
+
+    zip.file(piechartStyleXmlPath, pieChartstyleXml);
+    zip.file(pieChartcolorsXmlPath, pieChartcolorsXml);
+    zip.file(barChartstyleXmlPath, barChartstyleXml);
+    zip.file(barChartcolorsXmlPath, barChartcolorsXml);
+
+    // Add content type
+    const contentTypesPath = "[Content_Types].xml";
+    let contentTypesXml = zip.files[contentTypesPath].asText();
+    contentTypesXml = contentTypesXml.replace("</Types>", `${chartContentTypeXml}</Types>`);
+    zip.file(contentTypesPath, contentTypesXml);
+    
+
     var buf = doc.getZip().generate({type:"nodebuffer"});
 
     return buf;
@@ -325,15 +386,24 @@ expressions.filters.lines = function(input) {
 
 // Creates a hyperlink: {@input | linkTo: 'https://example.com' | p}
 expressions.filters.linkTo = function(input, url) {
-    // fix fix: now, urls were generated being quadruple URL encoded for some reason
-    var encodedUrl = url; // encodeURIComponent(url); // fix breaking word with special characters in reference
-    var encodedInput = input; // encodeURIComponent(input); // fix breaking word with special characters in reference
-    return `<w:r><w:fldChar w:fldCharType="begin"/></w:r>
-        <w:r><w:instrText xml:space="preserve"> HYPERLINK "${encodedUrl}" </w:instrText></w:r>
-        <w:r><w:fldChar w:fldCharType="separate"/></w:r>
-        <w:r><w:rPr><w:rStyle w:val="Hyperlink"/></w:rPr>
-        <w:t>${encodedInput}</w:t>
-        </w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>`;
+    // fix breaking word with special characters in reference
+    var entityencodedinput = input.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); // encode to prevent xml issues
+
+    if(typeof url === 'undefined') {
+        var entityencodedurl = entityencodedinput
+    } else {
+        var entityencodedurl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); // encode to prevent xml issues
+    }
+    
+    return `<w:p><w:r>
+    <w:fldChar w:fldCharType="begin"/></w:r><w:r>
+    <w:instrText xml:space="preserve"> HYPERLINK "${entityencodedurl}" </w:instrText>
+</w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r>
+<w:r><w:rPr><w:rStyle w:val="PwndocLink"/>
+        <w:shd w:val="clear" w:color="auto" w:fill="auto"/> <!-- Remove any shading -->
+    </w:rPr><w:t>${entityencodedinput}</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/>
+</w:r></w:p>`;
+        
 }
 
 // Loop over the input object, providing acccess to its keys and values: {#findings | loopObject}{key}{value.title}{/findings | loopObject}
@@ -384,17 +454,40 @@ expressions.filters.NewLines = function(input) {
 }
 
 // Embeds input within OOXML paragraph tags, applying an optional style name to it: {@input | p: 'Some style'}
+
+
 expressions.filters.p = function(input, style = null) {
-    let result = '<w:p>';
-
-    if (style !== null ) {
-        let style_parsed = style.replaceAll(' ', '');
-        result += '<w:pPr><w:pStyle w:val="' + style_parsed + '"/></w:pPr>';
+    // Don't create paragraph if content is empty
+    if (!input || input === "" || input === "undefined" || input === null) {
+        return "";
     }
-    result += input + '</w:p>';
 
+    // If input already contains a paragraph, don't create a new one
+    if (input.includes('<w:p>') && input.includes('</w:p>')) {
+        // If a style is requested, add it to existing paragraph
+        if (style) {
+            let style_parsed = style.replaceAll(' ', '');
+            if (style_parsed === 'Bullets') {
+                return input.replace('<w:p>', '<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr>');
+            }
+        }
+        return input;
+    }
+
+    // Create a new paragraph if necessary
+    let result = '<w:p>';
+    if (style !== null) {
+        let style_parsed = style.replaceAll(' ', '');
+        if (style_parsed === 'Bullets') {
+            result += '<w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr>';
+        } else {
+            result += '<w:pPr><w:pStyle w:val="' + style_parsed + '"/></w:pPr>';
+        }
+    }
+    result += '<w:r><w:t>' + input + '</w:t></w:r></w:p>';
     return result;
 }
+
 
 // Reverses the input array: {input | reverse}
 expressions.filters.reverse = function(input) {
@@ -474,13 +567,209 @@ expressions.filters.where = function(input, query) {
     });
 };
 
-// Convert HTML data to Open Office XML format: {@input | convertHTML: 'customStyle'}
-expressions.filters.convertHTML = function(input, style) {
-    if (typeof input === 'undefined')
+// Convert HTML data to Open Office XML format: {@input | convertHTML: 'customStyle' | 'listIds'}
+expressions.filters.convertHTML = function(input, style, listIds) {
+    if (typeof input === 'undefined') {
         var result = html2ooxml('')
-    else
-        var result = html2ooxml(input.replace(/(<p><\/p>)+$/, ''), style)
+    } else {
+        // Compter les balises <ol> dans l'input HTML
+        let olCount = 0;
+        let ulCount = 0;
+        
+        if (input && typeof input === 'string') {
+            olCount = (input.match(/<ol/g) || []).length;
+            ulCount = (input.match(/<ul/g) || []).length;
+        }
+        
+        console.log(`📄 List count in convertHTML:`);
+        console.log(`   🔢 Numbered lists (<ol>): ${olCount}`);
+        console.log(`   🔘 Bullet lists (<ul>): ${ulCount}`);
+        
+        // Convertir listIds en array si c'est une string
+        let listIdsArray = [];
+        if (listIds) {
+            if (typeof listIds === 'string') {
+                try {
+                    listIdsArray = JSON.parse(listIds);
+                } catch (e) {
+                    listIdsArray = [listIds];
+                }
+            } else if (Array.isArray(listIds)) {
+                listIdsArray = listIds;
+            } else {
+                listIdsArray = [listIds];
+            }
+        }
+        
+        // If we don't have provided IDs but have numbered lists, generate them automatically
+        if (olCount > 0 && listIdsArray.length === 0) {
+            // Generate unpredictable IDs between 10000 and 99999
+            listIdsArray = Array.from({length: olCount}, () => Math.floor(Math.random() * 90000) + 10000);
+            console.log(`🎲 Automatic generation of unpredictable IDs:`, listIdsArray);
+        }
+        
+        console.log(`🆔 List IDs to use:`, listIdsArray);
+        
+        // TOTAL ELIMINATION: No longer modify numbering.xml at all
+        // Use ONLY existing template definitions
+        console.log(`🚫 ELIMINATION: No modification of numbering.xml (olCount: ${olCount}, ulCount: ${ulCount})`);
+        
+        var result = html2ooxml(input.replace(/(<p><\/p>)+$/, ''), style, listIdsArray)
+    }
     return result;
+}
+
+// Fonction pour modifier le numbering.xml du document DOCX
+function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
+    try {
+        // Lire le numbering.xml existant
+        const numberingPath = "word/numbering.xml";
+        let numberingXml = zip.files[numberingPath].asText();
+        
+        // Save modified file doesn't exist, create it with complete structure
+        if (!numberingXml) {
+            numberingXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering mc:Ignorable="w14 w15 wp14" xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
+</w:numbering>`;
+        }
+        
+        // Use global abstractNumId or create a new one ONLY if we have numbered lists
+        let nextAbstractNumId = null;
+        if (olCount > 0) {
+            if (globalAbstractNumId === null) {
+                // First call: find next available abstractNumId
+                nextAbstractNumId = 1;
+                if (numberingXml.includes('w:abstractNum w:abstractNumId="')) {
+                    const matches = numberingXml.match(/w:abstractNum w:abstractNumId="(\d+)"/g);
+                    if (matches) {
+                        const ids = matches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
+                        nextAbstractNumId = Math.max(...ids) + 1;
+                    }
+                }
+                globalAbstractNumId = nextAbstractNumId;
+                console.log(`🆕 First abstractNumId created for numbered lists: ${globalAbstractNumId}`);
+            } else {
+                // Reuse existing abstractNumId
+                nextAbstractNumId = globalAbstractNumId;
+                console.log(`♻️ Reusing abstractNumId: ${globalAbstractNumId}`);
+            }
+        } else {
+            console.log(`ℹ️ No numbered list (<ol>) detected, no abstractNumId creation`);
+        }
+        
+        // Create abstract definition for numbered lists only if it's the first time AND we have numbered lists
+        if (olCount > 0 && !abstractNumCreated) {
+            // Create multi-level definition (0-8) for numbered lists
+            let decimalAbstract = `<w:abstractNum w:abstractNumId="${nextAbstractNumId}" w15:restartNumberingAfterBreak="0">
+                <w:multiLevelType w:val="hybridMultilevel"/>`;
+            
+            // Generate definitions for each level (0 to 8)
+            for (let i = 0; i <= 8; i++) {
+                const leftIndent = 720 + (i * 720); // Progressive indentation: 720, 1440, 2160, etc.
+                const hanging = 360; // Constant spacing for numbers
+                
+                // Use ONLY decimal to avoid conflicts with table of contents
+                const numFormat = "decimal";
+                const lvlText = `%${i+1}.`; // Each level uses its own counter
+                
+                decimalAbstract += `
+                <w:lvl w:ilvl="${i}" w15:tentative="1">
+                    <w:start w:val="1"/>
+                    <w:numFmt w:val="${numFormat}"/>
+                    <w:lvlText w:val="${lvlText}"/>
+                    <w:lvlJc w:val="start"/>
+                    <w:pPr>
+                        <w:ind w:left="${leftIndent}" w:hanging="${hanging}"/>
+                    </w:pPr>
+                </w:lvl>`;
+            }
+            
+            decimalAbstract += `\n</w:abstractNum>`;
+            
+            numberingXml = numberingXml.replace('</w:numbering>', `${decimalAbstract}\n</w:numbering>`);
+            abstractNumCreated = true;
+            console.log(`📝 Multi-level abstract definition created for abstractNumId: ${nextAbstractNumId}`);
+        } else {
+            console.log(`🚫 Abstract definition ignored (already created) for abstractNumId: ${nextAbstractNumId}`);
+        }
+        
+        // Create unique concrete numberings for each list (only if we have numbered lists and valid abstractNumId)
+        if (olCount > 0 && nextAbstractNumId !== null) {
+            listIdsArray.forEach((listId, index) => {
+                const concreteNumbering = `<w:num w:numId="${listId}"><w:abstractNumId w:val="${nextAbstractNumId}"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>`;
+                
+                numberingXml = numberingXml.replace('</w:numbering>', `${concreteNumbering}\n</w:numbering>`);
+            });
+        }
+        
+        // Add bullet definition if necessary (only once for entire document)
+        if (ulCount > 0 && !bulletDefinitionCreated) {
+            // Find next available numId by analyzing existing numbering.xml
+            let nextBulletNumId = 1;
+            if (numberingXml.includes('w:numId="')) {
+                const numIdMatches = numberingXml.match(/w:numId="(\d+)"/g);
+                if (numIdMatches) {
+                    const existingIds = numIdMatches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
+                    nextBulletNumId = Math.max(...existingIds) + 1;
+                }
+            }
+            
+            // Trouver le prochain abstractNumId disponible pour les puces
+            let bulletAbstractNumId = 1;
+            if (numberingXml.includes('w:abstractNum w:abstractNumId="')) {
+                const abstractMatches = numberingXml.match(/w:abstractNum w:abstractNumId="(\d+)"/g);
+                if (abstractMatches) {
+                    const existingAbstractIds = abstractMatches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
+                    bulletAbstractNumId = Math.max(...existingAbstractIds) + 1;
+                }
+            }
+            
+            // Create simple abstract definition for bullets
+            let bulletAbstract = `<w:abstractNum w:abstractNumId="${bulletAbstractNumId}" w15:restartNumberingAfterBreak="0">
+                <w:multiLevelType w:val="hybridMultilevel"/>
+                <w:lvl w:ilvl="0" w15:tentative="1">
+                    <w:start w:val="1"/>
+                    <w:numFmt w:val="bullet"/>
+                    <w:lvlText w:val="•"/>
+                    <w:lvlJc w:val="left"/>
+                    <w:pPr>
+                        <w:ind w:left="720" w:hanging="360"/>
+                    </w:pPr>
+                </w:lvl>
+            </w:abstractNum>`;
+            
+            numberingXml = numberingXml.replace('</w:numbering>', `${bulletAbstract}\n</w:numbering>`);
+            
+            const bulletNumbering = `<w:num w:numId="${nextBulletNumId}"><w:abstractNumId w:val="${bulletAbstractNumId}"/></w:num>`;
+            
+            numberingXml = numberingXml.replace('</w:numbering>', `${bulletNumbering}\n</w:numbering>`);
+            
+            bulletDefinitionCreated = true;
+            // Store dynamic ID for reuse
+            globalBulletNumId = nextBulletNumId;
+            console.log(`📝 Simple definition created for bullets (ID: ${nextBulletNumId}, abstractNumId: ${bulletAbstractNumId})`);
+        } else if (ulCount > 0 && bulletDefinitionCreated) {
+            console.log(`♻️ Bullet definition already created, reusing ID: ${globalBulletNumId}`);
+        }
+        
+        
+        zip.file(numberingPath, numberingXml);
+        
+        console.log(`✅ numbering.xml modified with success`);
+        console.log(`✅ numbering.xml modified successfully`);
+        if (olCount > 0 && nextAbstractNumId !== null) {
+            console.log(`   🔢 AbstractNumId used for numbered lists: ${nextAbstractNumId}`);
+            console.log(`   🔢 Numbered list IDs: ${listIdsArray.join(', ')}`);
+        }
+        if (bulletDefinitionCreated) {
+            console.log(`   🔘 Bullet ID: ${globalBulletNumId}`);
+        }
+        if (olCount === 0 && ulCount === 0) {
+            console.log(`   ℹ️ No list detected, numbering.xml not modified`);
+        }
+        
+    } catch (error) {
+        console.log(`❌ Error modifying numbering.xml:`, error);
+    }
 }
 
 // Count vulnerability by severity
@@ -513,6 +802,158 @@ expressions.filters.count = function(input, severity, scoreType) {
     return count;
 }
 
+// Generate a pie chart for findings severity
+// Example: {@findings | pieChart:'field':'title':'barColor':'labelColor':'labelSize'}
+// Example: {@findings | pieChart:'My bar chart':'000000':'FF0000':'FFA500':'FFFF00'}
+expressions.filters.pieChart = function(input, title, colorCrit, colorHigh, colorMed, colorLow) {
+    if(!input) return input;
+    if(!title) title = "";
+    if(!colorCrit) colorCrit = "000000";
+    if(!colorHigh) colorHigh = "FF0000";
+    if(!colorMed) colorMed = "FFA500";
+    if(!colorLow) colorLow = "FFFF00";
+    var countCritical = 0;
+    var countHigh = 0;
+    var countMedium = 0;
+    var countLow = 0;
+
+    for(var i = 0; i < input.length; i++){
+
+        if(input[i].cvss["baseSeverity"] === "Critical"){
+            countCritical += 1;
+        } else if(input[i].cvss["baseSeverity"] === "High"){
+            countHigh += 1;
+        } else if(input[i].cvss["baseSeverity"] === "Medium"){
+            countMedium += 1;
+        } else if(input[i].cvss["baseSeverity"] === "Low"){
+            countLow += 1;
+        }
+    }
+
+    pieChartXML = chartGenerator.generatePieChart(title, colorCrit, colorHigh, colorMed, colorLow, countCritical, countHigh, countMedium, countLow, $t);
+
+    numberOfPieChart += 1;
+
+    // References
+    chartRelXml += `<Relationship Id="rId-pwndoc-pie-${numberOfPieChart}"
+    Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"
+    Target="charts/pieChart-${numberOfPieChart}-pwndoc.xml"/>`;
+
+    // Content type
+    chartContentTypeXml += `<Override PartName="/word/charts/pieChart-${numberOfPieChart}-pwndoc.xml"
+                ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>
+    `;
+
+    const piechartXmlPath = `word/charts/pieChart-${numberOfPieChart}-pwndoc.xml`;
+    zip.file(piechartXmlPath, pieChartXML);
+
+    return `<w:p>
+    <w:r>
+        <w:drawing>
+            <wp:inline distT="0" distB="0" distL="0" distR="0" wp14:anchorId="5CD9E55B" wp14:editId="2E40AF66">
+                <wp:extent cx="5486400" cy="3200400"/>
+                <wp:effectExtent l="0" t="0" r="0" b="0"/>
+                <wp:docPr id="1836246480" name="Piechart Severity"/>
+                <wp:cNvGraphicFramePr/>
+                <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">
+                        <c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"
+                                 xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+                                 r:id="rId-pwndoc-pie-${numberOfPieChart}"/>
+                    </a:graphicData>
+                </a:graphic>
+            </wp:inline>
+        </w:drawing>
+    </w:r>
+</w:p>`;
+}
+
+// Generate a bar chart for findings data
+// Example: {@findings | barChart:'field':'title':'barColor':'labelColor':'labelSize'}
+// Example: {@findings | barChart:'vulnType':'My bar chart'}
+// Example: {@findings | barChart:'cvss.baseSeverity':'My chart':'FF0000':'AABB00':'1500'}
+expressions.filters.barChart = function(input, field, title, barColor, labelColor, labelSize) {
+    if(!input) return input;
+    if(!field) return field;
+    if(!labelSize) labelSize = 1100
+    if(!title) title = "";
+    if(!barColor) barColor = "000000";
+    if(!labelColor) labelColor = "000000";
+
+    var dataTypeCount = {};
+
+    for(var i = 0; i < input.length; i++){
+        var fieldValue = input[i];
+        var parts = field.split('.');
+    
+        for (var j = 0; j < parts.length; j++) {
+            if (fieldValue && fieldValue[parts[j]]) {
+                fieldValue = fieldValue[parts[j]];
+            } else {
+                fieldValue = undefined;
+                break;
+            }
+        }
+    
+        if (fieldValue !== undefined) {
+            if (dataTypeCount[fieldValue]) {
+                dataTypeCount[fieldValue]++;
+            } else {
+                dataTypeCount[fieldValue] = 1;
+            }
+        }
+    }
+
+    valueXML = `<c:ptCount val="${Object.keys(dataTypeCount).length}"/>`;
+    legendXML = `<c:ptCount val="${Object.keys(dataTypeCount).length}"/>`;
+
+    var index = 0;
+
+    for (var type in dataTypeCount) {
+
+        legendXML += ` <c:pt idx="${index}"><c:v>${encodeHTMLEntities(type.toString())}</c:v></c:pt>`
+        valueXML += `<c:pt idx="${index}"><c:v>${encodeHTMLEntities(dataTypeCount[type].toString())}</c:v></c:pt>`
+        index+=1;
+    }
+
+    barChartXML = chartGenerator.generateBarChart(title, barColor, legendXML, valueXML, labelSize, labelColor);
+
+    numberOfBarChart +=1
+
+    // References
+    chartRelXml += `<Relationship Id="rId-pwndoc-bar-${numberOfBarChart}"
+    Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"
+    Target="charts/barChart-${numberOfBarChart}-pwndoc.xml"/>`;
+
+    // Content type
+    chartContentTypeXml += `<Override PartName="/word/charts/barChart-${numberOfBarChart}-pwndoc.xml"
+                ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>
+    `;
+
+    // Chart path
+    const barchartXmlPath = `word/charts/barChart-${numberOfBarChart}-pwndoc.xml`;
+    zip.file(barchartXmlPath, barChartXML);
+
+    return `<w:p>
+    <w:r>
+        <w:drawing>
+            <wp:inline distT="0" distB="0" distL="0" distR="0" wp14:anchorId="5CD9E55B" wp14:editId="2E40AF66">
+                <wp:extent cx="5486400" cy="3200400"/>
+                <wp:effectExtent l="0" t="0" r="0" b="0"/>
+                <wp:docPr id="1836246480" name="barChart type"/>
+                <wp:cNvGraphicFramePr/>
+                <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">
+                        <c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"
+                                 xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+                                 r:id="rId-pwndoc-bar-${numberOfBarChart}"/>
+                    </a:graphicData>
+                </a:graphic>
+            </wp:inline>
+        </w:drawing>
+    </w:r>
+</w:p>`;
+}
 
 // Translate using locale from 'translate' folder
 // Example: {input | translate: 'fr'}
@@ -740,7 +1181,12 @@ function cvssStrToObject(cvss) {
     }
     return res
 }
-
+function stripParagraphTags(input) {
+    console.log("JE STRIP MES PARAMETRES")
+    return input
+        .replace(/<\/?p[^>]*>/gi, '') // supprime toutes les balises <p> ou </p>
+        .trim();
+}
 async function prepAuditData(data, settings) {
     /** CVSS Colors for table cells */
     var noneColor = settings.report.public.cvssColors.noneColor.replace('#', ''); //default of blue ("#4A86E8")
@@ -803,6 +1249,9 @@ async function prepAuditData(data, settings) {
         result.company.shortName = data.company.shortName || result.company.name
         result.company.logo = data.company.logo || "undefined"
         result.company.logo_small = data.company.logo || "undefined"
+        result.company.address = data.company.address || ""
+        result.company.postalCode = data.company.postalCode || ""
+        result.company.city = data.company.city || ""
     }
 
     result.client = {}
@@ -863,12 +1312,15 @@ async function prepAuditData(data, settings) {
             references: finding.references || [],
             poc: await splitHTMLParagraphs(finding.poc),
             affected: finding.scope || "",
+            //affected: stripParagraphTags(finding.scope) || [],
             affectedParseMode: finding.scopeMode || 'regex',
             status: finding.status || "",
             category: $t(finding.category) || $t("No Category"),
-            identifier: "IDX-" + utils.lPad(finding.identifier)
+            identifier: "IDX-" + utils.lPad(finding.identifier),
+            unique_id: finding._id.toString()
         }
-        // Remediation Complexity color
+        console.log(tmpFinding)
+        // Remediation Complexity color 
         if (tmpFinding.remediationComplexity === 1) tmpFinding.remediation.cellColorComplexity = cellLowColorRemediationComplexity
         else if (tmpFinding.remediationComplexity === 2) tmpFinding.remediation.cellColorComplexity = cellMediumColorRemediationComplexity
         else if (tmpFinding.remediationComplexity === 3) tmpFinding.remediation.cellColorComplexity = cellHighColorRemediationComplexity

@@ -4,7 +4,10 @@ var Schema = mongoose.Schema;
 var CompanySchema = new Schema({
     name: {type: String, required: true, unique: true},
     shortName: String,
-    logo: String
+    logo: String,
+    address: String,
+    postalCode: String,
+    city: String
 
 }, {timestamps: true});
 
@@ -16,7 +19,7 @@ var CompanySchema = new Schema({
 CompanySchema.statics.getAll = () => {
     return new Promise((resolve, reject) => {
         var query = Company.find();
-        query.select('name shortName logo');
+        query.select('name shortName logo address postalCode city');
         query.exec()
         .then((rows) => {
             resolve(rows);
@@ -31,7 +34,7 @@ CompanySchema.statics.getAll = () => {
 CompanySchema.statics.export = () => {
     return new Promise((resolve, reject) => {
         var query = Company.find();
-        query.select('name shortName logo -_id')
+        query.select('name shortName logo address postalCode city -_id')
         query.exec()
         .then((rows) => {
             resolve(rows);
@@ -51,13 +54,8 @@ CompanySchema.statics.create = (companies) => {
         })
         .catch((err) => {
             if (err.code === 11000) {
-                if (err.result.nInserted === 0)
-                    reject({fn: 'BadParameters', message: 'Company name already exists'});
-                else {
-                    var errorMessages = [] 
-                    err.writeErrors.forEach(e => errorMessages.push(e.errmsg || "no errmsg"))
-                    resolve({created: err.result.nInserted, duplicates: errorMessages});
-                }
+                // Always reject when there are duplicates, even if some insertions succeeded
+                reject({fn: 'BadParameters', message: 'Company name already exists'});
             }
             else
                 reject(err);
@@ -102,7 +100,7 @@ CompanySchema.statics.deleteAll = () => {
 // Delete company
 CompanySchema.statics.delete = (companyId) => {
     return new Promise((resolve, reject) => {
-        var query = Company.findOneAndRemove({_id: companyId});
+        var query = Company.findOneAndDelete({_id: companyId});
         query.exec()
         .then((rows) => {
             if (rows)

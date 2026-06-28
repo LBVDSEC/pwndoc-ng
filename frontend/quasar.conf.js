@@ -7,7 +7,7 @@ module.exports = function (ctx) {
     // app boot (/src/boot)
     boot: [
       'axios',
-      'affix',
+      'sticky',
       'auth',
       'i18n',
       'darkmode',
@@ -28,6 +28,9 @@ module.exports = function (ctx) {
       scopeHoisting: true,
       vueRouterMode: 'history',
       vueCompiler: true,
+      showProgress: true,
+      showWarnings: true,
+      stylusVariables: 'src/css/quasar-variables.styl',
       // gzip: true,
       // analyze: true,
       // extractCSS: false,
@@ -63,6 +66,18 @@ module.exports = function (ctx) {
     },
     // framework: 'all' --- includes everything; for dev only!
     framework: {
+      config: {
+        brand: {
+          primary: '#3c4759',
+          secondary: '#26A69A',
+          tertiary: '#555',
+          neutral: '#E0E1E2',
+          positive: '#21BA45',
+          negative: '#DB2828',
+          info: '#31CCEC',
+          warning: '#F2C037'
+        }
+      },
       components: [
         'QAvatar',
         'QBadge',
@@ -111,6 +126,7 @@ module.exports = function (ctx) {
         'QSeparator',
         'QSpace',
         'QSpinnerGears',
+        'QInnerLoading',
         'QSplitter',
         'QTab',
         'QTable',
@@ -136,7 +152,8 @@ module.exports = function (ctx) {
         'Cookies',
         'Dialog',
         'Loading',
-        'Notify'
+        'Notify',
+        'Dark'
       ]
       // iconSet: ctx.theme.mat ? 'material-icons' : 'ionicons'
       // lang: 'de' // Quasar language

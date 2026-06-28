@@ -5,6 +5,8 @@ export default [
     {path: '', redirect: 'audits' },
     {path: 'audits', component: () => import('pages/audits'), meta: {breadcrumb: 'Audits'}, children: [
       {path: '', name:'audits', component: () => import('pages/audits/list')},
+      {path: ':finding', name:'audits_by_find', component: () => import('pages/audits/list')},
+
       {path: ':auditId', component: () => import('pages/audits/edit'), meta: {breadcrumb: 'Edit Audit'}, children: [
         {path: '', redirect: 'general'},
         {path: 'general', name:'general', component: () => import('pages/audits/edit/general')},
@@ -23,12 +25,12 @@ export default [
       {path: 'dump', component: () => import('pages/data/dump')},
       {path: 'custom', component: () => import('pages/data/custom')}
     ]},
-    {path: 'vulnerabilities', component: () => import('pages/vulnerabilities'), meta: {breadcrumb: 'Vulnerabilities'}},
+    {path: 'vulnerabilities', component: () => import('@/pages/vulnerabilities'), meta: {breadcrumb: 'Vulnerabilities'}},
     {path: 'profile', component: () => import('pages/profile')},
     {path: 'settings', component: () => import('pages/settings')},
     {path: '403', name: '403', component: () => import('pages/403')},
     {path: '404', name: '404', component: () => import('pages/404')}
   ]},
   {path: '/login', component: () => import('pages/login')},
-  {path: '*', redirect: '/'}
+  {path: '/:pathMatch(.*)*', redirect: '/'}
 ]

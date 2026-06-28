@@ -19,8 +19,10 @@ export default {
             UserService: UserService,
             // Vulnerabilities list
             vulnerabilities: [],
+            currentDetailsIndex:0,
             // Loading state
             loading: true,
+            rows:[],
             // Datatable headers
             dtHeaders: [
                 { name: 'title', label: $t('title'), field: 'title', align: 'left', sortable: true },
@@ -108,18 +110,25 @@ export default {
             return this.vulnTypes.filter(type => type.locale === this.currentLanguage);
         },
 
-        computedVulnerabilities: function() {
-            var result = [];
-            this.vulnerabilities.forEach(vuln => {
-                for (var i=0; i<vuln.details.length; i++) {
-                    if (vuln.details[i].locale === this.dtLanguage && vuln.details[i].title) {
-                        result.push(vuln);
-                    }
-                }
-            })
-            return result;
+        computedVulnerabilities() {
+            if (!this.dtLanguage) return [];
+            let filtered = this.vulnerabilities.filter(vuln =>
+                vuln.details.some(detail => detail.locale === this.dtLanguage && detail.title)
+            );
+            return filtered;
         },
-
+        filteredVulnerabilitiesLeft() {
+            if (!this.mergeLanguageLeft) return [];
+            return this.vulnerabilities.filter(
+              (vuln) => vuln && vuln.details && this.getVulnTitleLocale(vuln, this.mergeLanguageLeft) !== 'undefined'
+            );
+          },
+          filteredVulnerabilitiesRight() {
+            if (!this.mergeLanguageRight) return [];
+            return this.vulnerabilities.filter(
+              (vuln) => vuln && vuln.details && this.getVulnTitleLocale(vuln, this.mergeLanguageRight) !== 'undefined'
+            );
+          },
         vulnCategoriesOptions: function() {
             var result = this.vulnCategories.map(cat => {return cat.name})
             result.unshift('No Category')
@@ -301,6 +310,8 @@ export default {
                     vuln.customFields = Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, vuln.customFields, vuln.locale)
                 })
                 if (this.vulnUpdates.length > 0) {
+                    // Sort by modification date (newest first)
+                    this.vulnUpdates.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
                     this.currentUpdate = this.vulnUpdates[0]._id || null;
                     this.currentLanguage = this.vulnUpdates[0].locale || null;
                 }
@@ -372,15 +383,18 @@ export default {
                     references: [],
                     customFields: []
                 }
+         
                 details.customFields = this.$_.cloneDeep(Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, [], this.currentLanguage))
-                
-                this.currentVulnerability.details.push(details)
+                console.log( details.customFields,'vulnerability', this.currentVulnerability.category, this.customFields, [], this.currentLanguage)
+                this.currentVulnerability.details.push(details,)
                 index = this.currentVulnerability.details.length - 1;
             }
             else {
                 this.currentVulnerability.details[index].customFields = this.$_.cloneDeep(Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, this.currentVulnerability.details[index].customFields, this.currentLanguage))
             }
             this.currentDetailsIndex = index;
+     
+     
         },
 
         isTextInCustomFields: function(field) {
@@ -479,15 +493,21 @@ export default {
 
         goToAudits: function(row) {
             var title = this.getDtTitle(row);
-            this.$router.push({name: 'audits', params: {finding: title}});
+            this.$router.push({name: 'audits_by_find', params: {finding: title}});
         },
 
         getVulnTitleLocale: function(vuln, locale) {
-            for (var i=0; i<vuln.details.length; i++) {
-                if (vuln.details[i].locale === locale && vuln.details[i].title) return vuln.details[i].title;
+            if (!vuln || !Array.isArray(vuln.details)) {
+                return "undefined";
+            }
+            for (var i = 0; i < vuln.details.length; i++) {
+                if (vuln.details[i].locale === locale && vuln.details[i].title) {
+                    return vuln.details[i].title;
+                }
             }
             return "undefined";
         },
+        
 
         mergeVulnerabilities: function() {
             VulnerabilityService.mergeVulnerability(this.mergeVulnLeft, this.mergeVulnRight, this.mergeLanguageRight)

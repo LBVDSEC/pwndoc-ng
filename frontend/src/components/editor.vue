@@ -7,11 +7,7 @@
     :class="affixRelativeElement"
     :style="editable ? '' : 'border: 1px dashed lightgrey'"
   >
-    <affix
-      :relative-element-selector="'.' + affixRelativeElement"
-      :enabled="!noAffix"
-      class="bg-white"
-    >
+  <div v-sticky sticky-offset="stickyConfig"  class="bg-white">
       <q-toolbar class="editor-toolbar">
         <div v-if="toolbar.indexOf('format') !== -1">
           <q-tooltip :delay="500" content-class="text-bold"
@@ -507,9 +503,9 @@
         <q-separator
           vertical
           class="q-mx-sm"
-          v-if="diff !== undefined && (diff || value) && value !== diff"
+          v-if="diff !== undefined && (diff || modelValue) && modelValue !== diff"
         />
-        <div v-if="diff !== undefined && (diff || value) && value !== diff">
+        <div v-if="diff !== undefined && (diff || modelValue) && modelValue !== diff">
           <q-btn
             flat
             size="sm"
@@ -520,7 +516,7 @@
           />
         </div>
       </q-toolbar>
-    </affix>
+    </div>
     <q-separator />
      <bubble-menu
       class="editor-bubble-menu"
@@ -546,6 +542,28 @@
 
 
     </bubble-menu>
+    <bubble-menu
+  class="bubble-menu"
+  v-if="editor"
+  :editor="editor"
+  :tippy-options="{ placement: 'bottom', animation: 'fade' }"
+>
+  <section class="bubble-menu-section-container">
+    <section class="message-section">
+      {{ matchMessage }}
+    </section>
+    <section class="suggestions-section">
+      <article
+        v-for="(replacement, i) in replacements"
+        @click="() => acceptSuggestion(replacement)"
+        :key="i + replacement.value"
+        class="suggestion"
+      >
+        {{ replacement.value }}
+      </article>
+    </section>
+  </section>
+</bubble-menu>
     <editor-content
       v-if="typeof diff === 'undefined' || !toggleDiff"
       class="editor__content q-pa-sm"
@@ -558,8 +576,14 @@
 </template>
 
 <script>
-import { Editor, EditorContent, BubbleMenu } from "@tiptap/vue-2";
+import { defineComponent,ref } from 'vue';
+
+import { Editor, EditorContent, BubbleMenu, VueNodeViewRenderer  } from "@tiptap/vue-3";
 //  Import extensions
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+
+
+import { LanguageTool } from './languagetool'
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
@@ -571,6 +595,7 @@ import Link from "@tiptap/extension-link";
 import CustomImage from "./editor-image";
 //import Caption from "./editor-caption";
 import { Figure } from "./figure";
+import { TriggerMenuExtension } from './internal-link';
 import {v4 as uuidv4} from 'uuid';
 import UserService from '@/services/user';
 import Collaboration from '@tiptap/extension-collaboration'
@@ -579,15 +604,54 @@ import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 
 
+
+import css from 'highlight.js/lib/languages/css'
+import js from 'highlight.js/lib/languages/javascript'
+import http from 'highlight.js/lib/languages/http'
+import ts from 'highlight.js/lib/languages/typescript'
+import html from 'highlight.js/lib/languages/xml'
+import bash from 'highlight.js/lib/languages/bash';
+import sql from 'highlight.js/lib/languages/sql';
+import json from 'highlight.js/lib/languages/json';
+import CodeBlockComponent from './CodeBlockComponent.vue'
+
+import { all, createLowlight } from 'lowlight'
+
+// create a lowlight instance
+const lowlight = createLowlight(all)
+
+// you can also register languages
+lowlight.register('html', html)
+lowlight.register('css', css)
+lowlight.register('javascripts', js)
+lowlight.register('ts', ts)
+lowlight.register('http', http)
+lowlight.register('bash', bash);
+lowlight.register('sql', sql);
+lowlight.register('json', json);
+
+
 const Diff = require("diff");
 //  Internal libs
 import Utils from "@/services/utils";
 import ImageService from "@/services/image";
 
-export default {
+
+const match = ref(null)
+
+
+const updateHtmlLanguageTool = () => navigator.clipboard.writeText(editor.value.getHTML())
+
+
+export default defineComponent({
+  emits: ['editorchange', 'ready', 'update:modelValue'],
   name: "BasicEditor",
+
   props: {
-    value: String,
+    modelValue:{
+      type: String,
+      default: ''
+    },
     editable: {
       type: Boolean,
       default: true,
@@ -621,10 +685,12 @@ export default {
     },
 
   },
+
   components: {
     EditorContent,
     BubbleMenu
   },
+
   data() {
     return {
       editor: null,
@@ -639,11 +705,19 @@ export default {
       countChangeAfterUpdate:-1,
       initialeDataUpdated:false,
       htmlEncode: Utils.htmlEncode,
+      stickyConfig: {
+        zIndex: 1000,
+        top: 50,
+        sticked: true,
+        disabled: false,
+        wrapper: true
+      }
+
     };
   },
 
   watch: {
-    async value(value) {
+    async modelValue(value) {
       await this.updateInitialeValue(value)
     },
     editable(value) {
@@ -653,7 +727,18 @@ export default {
   },
 
   mounted() {
-     
+
+    const updateMatch = this.updateMatch;
+
+
+
+    const proofread = () => this.editor.commands.proofread()
+
+
+
+    if (this.modelValue === undefined || this.modelValue === null) {
+      this.$emit('update:modelValue', '');
+    }
      const ydoc = new Y.Doc()
      if(this.idUnique == '') {
       this.ClassEditor = uuidv4()
@@ -668,7 +753,10 @@ export default {
      }
 
     let extensionEditor = [
-        StarterKit,
+        StarterKit.configure({
+          codeBlock: false, // Disable standard codeBlock to use code block highlight
+        }),
+
         Highlight.configure({
           multicolor: true,
         }),
@@ -677,13 +765,21 @@ export default {
              linkOnPaste: false,
               openOnClick: false,
         }),
+        CodeBlockLowlight
+          .extend({
+            addNodeView() {
+              return VueNodeViewRenderer(CodeBlockComponent)
+            },
+          })
+          .configure({ lowlight }),
         Underline,
-        TableRow,
-        TableHeader,
-        TableCell,
         Table.configure({
           resizable: true,
         }),
+        TableRow,
+        TableHeader,
+        TableCell,
+        TriggerMenuExtension,
         CustomImage.configure({
           HTMLAttributes: {
             class: "custom-image",
@@ -691,20 +787,29 @@ export default {
           allowBase64: true
         }),
         Figure,
+        LanguageTool.configure({
+         apiUrl: `https://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/v2/check`, 
+          //apiUrl: `https://127.0.0.1:8443/v2/check`, 
+          language: 'auto',   
+          automaticMode: true, // 1 second delay before verification
+        }),
       ]
-
      if(this.collab){
+
        this.provider = new HocuspocusProvider({
         url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
+        //url:"wss://127.0.0.1:8443/collab/",
         name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
         document  : ydoc
       })
 
       this.provider.on('status', event => {
         this.status = event.status
+        console.log('status',event.status)
       })
       this.provider.on('synced', state => {
         this.state=state.state
+        console.log('ok',state.state)
       })
       extensionEditor.push(Collaboration.configure({
           document: ydoc,
@@ -727,36 +832,49 @@ export default {
     this.editor = new Editor({
       editable: false,
       extensions: extensionEditor ,
-      onUpdate: () => {
-        console.log("onUpdate");
+      onUpdate: ({editor}) => {
+        setTimeout(() => updateMatch(editor))
         if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
            this.$emit('editorchange') // need save only if sync is done
         } else {
           this.countChange++
         }
-
         if (this.noSync) return;
         this.updateHTML();
+      },
+      onSelectionUpdate({ editor }) {
+        setTimeout(() => updateMatch(editor))
       },
       disableInputRules: true,
       disablePasteRules: true,
     });
+
+    // Listen to auto correction toggle changes
+    this.autoCorrectionToggleListener = (event) => {
+      if (this.editor && this.editor.extensionStorage.languagetool) {
+        this.editor.extensionStorage.languagetool.updateLanguageToolState();
+      }
+    };
+    window.addEventListener('autoCorrectionToggleChanged', this.autoCorrectionToggleListener);
+
     this.affixRelativeElement += "-" +  this.ClassEditor;
     //this.editor.setOptions({ editable: this.editable });
     this.editor.setEditable(this.editable && this.initialeDataUpdated);
     
-    if (typeof this.value === "undefined") {
-      this.value = "";
+    if (typeof this.modelValue === "undefined") {
+      this.$emit('update:modelValue', "");
     }
 
     if (
-      this.value === this.editor.getHTML()
+      this.modelValue === this.editor.getHTML()
     ) {
       return;
     }
-    this.updateInitialeValue(this.value)
+    this.updateInitialeValue(this.modelValue)
+
   },
-  async beforeDestroy() {
+
+  async beforeUnmount() {
     while(1){
       if(this.state==1 && this.status=='connected') break;
       else await this.sleep(100)
@@ -764,9 +882,28 @@ export default {
     if(this.collab){
       this.provider.destroy()
     }
+    
+    // Clean up auto correction listener
+    if (this.autoCorrectionToggleListener) {
+      window.removeEventListener('autoCorrectionToggleChanged', this.autoCorrectionToggleListener);
+    }
+    
     this.editor.destroy();
   },
+
   computed: {
+
+    match() {
+      return this.editor ? this.editor.extensionStorage.languagetool.match.value : null;
+    },
+    matchMessage() {
+     // console.log('matchmessage',this.match.message,this.match)
+      return this.match?.message || 'No Message';
+    },
+    replacements() {
+      //console.log('remplacements',this.match.replacements,this.match)
+      return this.match?.replacements || [];
+    },
     formatIcon: function () {
       if (this.editor.isActive("paragraph")) return "fa fa-paragraph";
       else return null;
@@ -793,7 +930,7 @@ export default {
             /([{}:;,.]|<p>|<\/p>|<pre><code>|<\/code><\/pre>|<[uo]l><li>.*<\/li><\/[uo]l>|\s+)/
           );
         };
-        var value = this.value || "";
+        var value = this.modelValue || "";
         var diff = HtmlDiff.diff(this.diff, value);
         diff.forEach((part) => {
           const diffclass = part.added
@@ -824,9 +961,17 @@ export default {
     },
   },
 
- 
   methods: {
+    acceptSuggestion(sug)  {
+      this.editor.commands.insertContent(sug.value)
+    },
+    updateMatch(editor) {
+
+
+    },
     async updateInitialeValue(value){
+
+              
     if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
       // if editor is init not in vuln edit context like cutom field
       this.editor.commands.setContent(value, false);
@@ -835,6 +980,7 @@ export default {
       this.$emit('ready')
       this.countChangeAfterUpdate=this.countChange
     } else {
+
       if(this.initialeDataUpdated==false){
           for (let i = 0; i < 200; i++) { // 25 second to connect web socket failed after
             if(this.status=='connected' && this.state){
@@ -925,12 +1071,60 @@ export default {
       }
       return colour;
     },
+    highlightAllCodeBlocks(html) {
+      if (!html) return '';
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      doc.querySelectorAll('pre code').forEach((codeBlock) => {
+        const langClass = codeBlock.className.match(/language-([a-zA-Z0-9-]+)/);
+        const lang = langClass ? langClass[1] : 'plaintext';
+        const originalCode = codeBlock.textContent;
+
+        try {
+          const highlighted = lowlight.highlight(lang, originalCode);
+          const tempDiv = document.createElement('div');
+          highlighted.children.forEach((node) => {
+            tempDiv.appendChild(this.convertLowlightNodeToHtml(node));
+          });
+          codeBlock.innerHTML = tempDiv.innerHTML;
+        } catch (e) {
+          console.warn(`Highlighting failed for ${lang}, fallback to plaintext`, e);
+          codeBlock.textContent = originalCode;
+        }
+      });
+
+      return doc.body.innerHTML;
+    },
+    convertLowlightNodeToHtml(node) {
+      if (node.type === 'text') {
+        return document.createTextNode(node.value);
+      } else if (node.type === 'element') {
+        const el = document.createElement(node.tagName);
+        if (node.properties) {
+          Object.entries(node.properties).forEach(([key, value]) => {
+            if (key === 'className') {
+              el.className = value.join(' ');
+            } else {
+              el.setAttribute(key, value);
+            }
+          });
+        }
+        if (node.children) {
+          node.children.forEach((child) => {
+            el.appendChild(this.convertLowlightNodeToHtml(child));
+          });
+        }
+        return el;
+      }
+      return document.createTextNode('');
+    },
     updateHTML() {
       if (!this.initialeDataUpdated) return;
-      
-      console.log("updateHTML");
       this.json = this.editor.getJSON();
       this.html = this.editor.getHTML();
+      this.html = this.highlightAllCodeBlocks(this.html);
       if (
         Array.isArray(this.json.content) &&
         this.json.content.length === 1 &&
@@ -939,13 +1133,88 @@ export default {
       ) {
         this.html = "";
       }
-      this.$emit("input", this.html);
+      this.$emit('update:modelValue', this.html);
     },
   },
-};
+});
 </script>
 
 <style lang="scss">
+
+.tiptap {
+  :first-child {
+    margin-top: 0;
+  }
+
+  pre {
+    background: var(--black);
+    border-radius: 0.5rem;
+    color: var(--white);
+    font-family: 'JetBrainsMono', monospace;
+    margin: 1.5rem 0;
+    padding: 0.75rem 1rem;
+
+    code {
+      background: none;
+      color: inherit;
+      font-size: 0.8rem;
+      padding: 0;
+    }
+
+    /* Code styling */
+    .hljs-comment,
+    .hljs-quote {
+      color: #616161;
+    }
+
+    .hljs-variable,
+    .hljs-template-variable,
+    .hljs-attribute,
+    .hljs-tag,
+    .hljs-name,
+    .hljs-regexp,
+    .hljs-link,
+    .hljs-name,
+    .hljs-selector-id,
+    .hljs-selector-class {
+      color: #f98181;
+    }
+
+    .hljs-number,
+    .hljs-meta,
+    .hljs-built_in,
+    .hljs-builtin-name,
+    .hljs-literal,
+    .hljs-type,
+    .hljs-params {
+      color: #fbbc88;
+    }
+
+    .hljs-string,
+    .hljs-symbol,
+    .hljs-bullet {
+      color: #b9f18d;
+    }
+
+    .hljs-title,
+    .hljs-section {
+      color: #faf594;
+    }
+
+    .hljs-keyword,
+    .hljs-selector-tag {
+      color: #70cff8;
+    }
+
+    .hljs-emphasis {
+      font-style: italic;
+    }
+
+    .hljs-strong {
+      font-weight: 700;
+    }
+  }
+}
 
 
 .collaboration-cursor__caret {
@@ -1200,4 +1469,104 @@ pre .diffadd {
   background: bottom;
     border: none;
 }
+
+.editor-menubar {
+  display: flex;
+  gap: 1rem;
+
+  button {
+    padding: 0.5rem;
+    text-transform: capitalize;
+    border: none;
+    background-color: white;
+    box-shadow: 0 0 10px rgba($color: #000000, $alpha: 0.25);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    font-weight: 500;
+    font-size: 1.1em;
+
+    &:hover {
+      box-shadow: 0 0 2px rgba($color: #000000, $alpha: 0.25);
+    }
+  }
+}
+
+.ProseMirror {
+  .lt {
+    border-bottom: 2px solid #e86a69;
+    transition: background 0.25s ease-in-out;
+
+    &:hover {
+      background: rgba($color: #e86a69, $alpha: 0.2);
+    }
+
+    &-style {
+      border-bottom: 2px solid #9d8eff;
+
+      &:hover {
+        background: rgba($color: #9d8eff, $alpha: 0.2) !important;
+      }
+    }
+
+    &-typographical,
+    &-grammar {
+      border-bottom: 2px solid #eeb55c;
+
+      &:hover {
+        background: rgba($color: #eeb55c, $alpha: 0.2) !important;
+      }
+    }
+
+    &-misspelling {
+      border-bottom: 2px solid #e86a69;
+
+      &:hover {
+        background: rgba($color: #e86a69, $alpha: 0.2) !important;
+      }
+    }
+  }
+
+  &-focused {
+    outline: none !important;
+  }
+}
+
+
+.content {
+  max-width: 50%;
+  min-width: 50%;
+}
+
+.bubble-menu > .bubble-menu-section-container {
+  display: flex;
+  flex-direction: column;
+  background-color: white;
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba($color: black, $alpha: 0.25);
+  max-width: 400px;
+
+  .suggestions-section {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 1em;
+
+    .suggestion {
+      background-color: #229afe;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      font-weight: 500;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      font-size: 1.1em;
+      max-width: fit-content;
+    }
+  }
+}
+
 </style>

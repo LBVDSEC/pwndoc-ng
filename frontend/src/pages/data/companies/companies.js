@@ -12,11 +12,14 @@ export default {
             // Companies list
             companies: [],
             // Loading state
-            loading: true,
             // Datatable headers
+            rows:[],
             dtHeaders: [
                 {name: 'name', label: $t('name'), field: 'name', align: 'left', sortable: true},
                 {name: 'shortName', label: $t('shortName'), field: 'shortName', align: 'left', sortable: true},
+                {name: 'address', label: $t('address'), field: 'address', align: 'left', sortable: true},
+                {name: 'postalCode', label: $t('postalCode'), field: 'postalCode', align: 'left', sortable: true},
+                {name: 'city', label: $t('city'), field: 'city', align: 'left', sortable: true},
                 {name: 'logo', label: $t('logo'), field: 'logo', align: 'left', sortable: true},
                 {name: 'action', label: '', field: 'action', align: 'left', sortable: false},
             ],
@@ -41,10 +44,14 @@ export default {
             currentCompany: {
                 name: '', 
                 shortName: '',
+                address: '',
+                postalCode: '',
+                city: '',
                 logo: ''
             },
             // Name for update
-            idUpdate: ''
+            idUpdate: '',
+            loading:false
         }
     },
 
@@ -64,7 +71,18 @@ export default {
                 console.log(err)
             })
         },
-            
+        isBase64Image(logo) {
+            return typeof logo === 'string' && logo.startsWith('data:image');
+          },
+        
+          // Add the prefix if it's not already there
+          getImageSrc(logo) {
+            if (this.isBase64Image(logo)) {
+              return logo;
+            }
+            // Adapt according to the actual format of your image (png, jpeg, etc.)
+            return `data:image/png;base64,${logo}`;
+          },
         createCompany: function() {
             this.cleanErrors();
             if (!this.currentCompany.name)
@@ -168,6 +186,9 @@ export default {
         cleanCurrentCompany: function() {
             this.currentCompany.name = '';
             this.currentCompany.shortName = '';
+            this.currentCompany.address = '';
+            this.currentCompany.postalCode = '';
+            this.currentCompany.city = '';
             this.currentCompany.logo = '';
         },
 
