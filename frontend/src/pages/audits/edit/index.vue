@@ -63,7 +63,7 @@
               <q-item-section>{{$t('networkScan')}}</q-item-section>
             </q-item>
 
-            <!-- BEGIN LOCAL ADDITION -->
+            <!-- BEGIN LOCAL ADDITION moved sections here, was located further down in this file -->
             <q-list v-for="section of audit.sections" :key="section._id">
               <q-item :to="'/audits/'+auditId+'/sections/'+section._id">
                 <q-item-section avatar>
@@ -74,7 +74,7 @@
                 </q-item-section>
               </q-item>
               <div class="row">
-                <div v-for="(user,idx) in sectionUsers" :key="idx" v-if="user.section === section._id" class="col multi-colors-bar" :style="{background:user.color}" />
+                <div v-for="(user, idx) in filteredSectionUsers(section._id)" :key="user._id || idx" class="col multi-colors-bar" :style="{ background: user.color }" />
               </div>
             </q-list>
             <!-- END LOCAL ADDITION -->
@@ -233,19 +233,7 @@
               </div>
               <q-separator class="q-my-sm" />
             </div>
-            <q-list v-for="section of audit.sections" :key="section._id">
-              <q-item :to="'/audits/'+auditId+'/sections/'+section._id">
-                <q-item-section avatar>
-                  <q-icon :name="getSectionIcon(section)"></q-icon>
-                </q-item-section>
-                <q-item-section>
-                  <span>{{section.name}}</span>
-                </q-item-section>
-              </q-item>
-              <div class="row">
-                <div v-for="(user, idx) in filteredSectionUsers(section._id)" :key="user._id || idx" class="col multi-colors-bar" :style="{ background: user.color }" />
-              </div>
-            </q-list>
+            <!-- NOTE removed sections from here, moved up. -->
           </q-list>
         </template>
         <template v-slot:after>
