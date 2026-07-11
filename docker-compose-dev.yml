@@ -3,7 +3,7 @@ services:
 
   mongodb:
     image: mongo:4.2.15
-    container_name: mongo-pwndoc-ng
+    container_name: mongo-pwndoc-ng-dev
     volumes:
       - mongo-data-dev:/data/db
     ports:
@@ -16,7 +16,7 @@ services:
     build:
       context: ./backend/
       dockerfile: Dockerfile.dev
-    container_name: pwndoc-ng-backend
+    container_name: pwndoc-ng-backend-dev
     entrypoint: ""
     working_dir: "/app"
     command: "npm run dev"
