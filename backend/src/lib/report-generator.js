@@ -536,6 +536,30 @@ expressions.filters.sortArrayByField = function (input, field, order) {
     return sorted;
 }
 
+// BEGIN CUSTOM ADDITION
+expressions.filters.filterAndSortFindings = function (input) {
+    filtered = input.filter((f) => {
+        let score = f.cvss4 ? f.cvss4.baseMetricScore : parseFloat(f.cvss.baseMetricScore);
+        score = isNaN(score) ? 0 : score;
+        return score > 0;
+    })
+    sorted = filtered.sort((a, b) => {
+        score_a = a.cvss4 ? a.cvss4.baseMetricScore : parseFloat(a.cvss.baseMetricScore);
+        score_b = b.cvss4 ? b.cvss4.baseMetricScore : parseFloat(b.cvss.baseMetricScore);
+        return a > b;
+    })
+    return sorted;
+}
+
+expressions.filters.filterInfoFindings = function (input) {
+    filtered = input.filter((f) => {
+        let score = f.cvss4 ? f.cvss4.baseMetricScore : parseFloat(f.cvss.baseMetricScore);
+        score = isNaN(score) ? 0 : score;
+        return score == 0;
+    })
+    return filtered;
+}
+// END CUSTOM ADDITION 
 
 // Takes a string as input and split it into an ordered list using a separator: {input | split: ', '}
 expressions.filters.split = function(input, sep) {
@@ -962,6 +986,12 @@ expressions.filters.translate = function(input, locale) {
     if (!input) return input
     return $t(input, locale)
 }
+
+// BEGIN CUSTOM ADDITION
+expressions.filters.objHasField = function(input, field) {
+    return input && input.hasOwnProperty(field);
+}
+// END CUSTOM ADDITION
 
 // Filters helper: handles the use of dotted notation as property names.
 // Source: https://stackoverflow.com/a/37510735
@@ -1603,6 +1633,10 @@ async function prepAuditData(data, settings) {
             environmentalSeverity: tmpCVSS31.environmentalSeverity || ""
         }
 
+        // BEGIN CUSTOM ADDITION
+        tmpFinding.hasCVSS4 = useCVSS40;
+        // END CUSTOM ADDIDION
+
         // Create CVSS 4.0 object if CVSS 4.0 data exists
         if (useCVSS40) {
             tmpFinding.cvss4 = {
@@ -1701,6 +1735,15 @@ async function prepAuditData(data, settings) {
         if (useCVSS40) {
             tmpFinding.cvss4Obj = cvssStrToObject40(finding.cvssv4);
         }
+
+        // START CUSTOM ADDITION
+        tmpFinding.cvss3 = tmpFinding.cvss;
+        tmpFinding.cvss3Obj = tmpFinding.cvssObj;
+        if (useCVSS40) {  // Use cvss4 by default. TODO: Use default (configured) cvss version instead of cvss4.
+            tmpFinding.cvss = tmpFinding.cvss4;
+            tmpFinding.cvssObj = tmpFinding.cvss4Obj;
+        }
+        // END CUSTOM ADDITION
 
         if (finding.customFields) {
             for (field of finding.customFields) {
