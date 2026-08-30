@@ -473,11 +473,14 @@ tmpCells.push({
   .reduce((prev, next) => prev + next, 0) || 1; // avoid division by zero
 
 
+              // Note on width of table cell and table itself:
+              // 'pct' is fiftieths-of-a-percent. i.e., 5000 = 100%
+              // see https://ooxml.org/wordml/w-tblw/
               row.map((cell) => {
                 isHeader = cell.header;
                 tmpCells.push(new docx.TableCell({
                   width: {
-                    size: Math.round(parseFloat(cell.width / widthTotal)),
+                    size: Math.round((cell.width / widthTotal) * 5000),
                     type: "pct",
                   },
                   children: cell.text,
@@ -493,7 +496,7 @@ tmpCells.push({
             cParagraph = new docx.Table({
               rows: tblRows,
               width: {
-                size: 100,
+                size: 5000,
                 type: "pct"
               }
             });
@@ -524,67 +527,6 @@ tmpCells.push({
           delete cRunProperties.highlight;
         } else if (tag === "strike" || tag === "s") {
           delete cRunProperties.strike;
-
-        // BEGIN CUSTOM ADDITION
-
-        } else if (tag === "tr") {
-          inTableRow = false;
-          tableHeader = false;
-          tmpTable.push(tmpCells);
-          tmpCells = []
-        } else if (tag === "td" || tag === "th") {
-          tmpCells.push({
-            text: cellHasText === true ? tmpCellContent : "",
-            width: tmpAttribs.colwidth ? tmpAttribs.colwidth : "250",
-            header: tableHeader,
-          });
-
-          tmpAttribs = {};
-          tmpCellContent = [];
-          inTableCell = false;
-        } else if (tag === "table") {
-          inTable = false;
-          let tblRows = [];
-          tmpTable.map((row) => {
-            let tmpCells = [];
-            let isHeader = false
-            let widthTotal = row.map(cell => parseInt(cell.width)).reduce((prev, next) => prev + next);
-
-            row.map((cell) => {
-              isHeader = cell.header;
-              tmpCells.push(new docx.TableCell({
-                width: {
-                  size: Math.round(cell.width / widthTotal),
-                  type: "pct",
-                },
-                children: cell.text,
-              }))
-            });
-
-            tblRows.push(new docx.TableRow({
-              children: tmpCells,
-              tableHeader: isHeader,
-            }))
-
-
-          });
-          // build table and push to paragraphs array
-          cParagraph = new docx.Table({
-            rows: tblRows,
-            width: {
-              size: 100,
-              type: "pct"
-            }
-          });
-
-          paragraphs.push(cParagraph);
-          cParagraph = null;
-          cParagraphProperties = {};
-          tmpTable = [];
-          tmpCells = [];
-
-          // END CUSTOM ADDITION
-
         }
       },
 

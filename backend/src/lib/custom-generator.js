@@ -184,6 +184,8 @@ expressions.filters.extractTable = function(input) {
 function generate_table(input, col_width, col_names) {
     tw = col_width.reduce((v, a) => v + a, 0);
 
+    console.log("Generating table!");
+
     // https://docxperiments.readthedocs.io/en/latest/synthesis/documentxml.html
     pre = `<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid" /><w:tblW w:w="${tw}" w:type="pct" /><w:tblBorders><w:top w:val="single" w:sz="24" w:space="0" w:color="FFFFFF" w:themeColor="background1" /><w:left w:val="single" w:sz="24" w:space="0" w:color="FFFFFF" w:themeColor="background1" /><w:bottom w:val="single" w:sz="24" w:space="0" w:color="FFFFFF" w:themeColor="background1" /><w:right w:val="single" w:sz="24" w:space="0" w:color="FFFFFF" w:themeColor="background1" /><w:insideH w:val="single" w:sz="24" w:space="0" w:color="FFFFFF" w:themeColor="background1" /><w:insideV w:val="single" w:sz="24" w:space="0" w:color="FFFFFF" w:themeColor="background1" /></w:tblBorders><w:tblLayout w:type="fixed" /></w:tblPr>`;
     pre += '<w:tblGrid>' + col_width.map((w) => ` <w:gridCol w:w="${w}" />`).join('') + '</w:tblGrid>';
@@ -199,6 +201,8 @@ function generate_table(input, col_width, col_names) {
         }
         out += "</w:tr>";
     }
+
+    console.log("OTHER TABLE", pre + out + post)
 
     return pre + out + post;
 }
