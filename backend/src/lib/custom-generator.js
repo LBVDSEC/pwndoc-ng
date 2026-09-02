@@ -23,6 +23,30 @@ exports.apply = apply;
 
 var filters = {};
 
+expressions.filters.CVSSlink = function(vector) {
+    // fix breaking word with special characters in reference
+    var entityencodedvector = vector.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); // encode to prevent xml issues
+
+    const match = vector.trim().match(/^CVSS:(\d+\.\d+)\//i);
+    if (match) {
+        var version = match[1]; // e.g. "3.1" or "4.0"
+    } else {
+        var version = "4.0";
+    }
+
+    var entityencodedurl = `https://www.first.org/cvss/calculator/${version}#${entityencodedvector}`;
+    
+    return `<w:p><w:r>
+    <w:fldChar w:fldCharType="begin"/></w:r><w:r>
+    <w:instrText xml:space="preserve"> HYPERLINK "${entityencodedurl}" </w:instrText>
+</w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r>
+<w:r><w:rPr><w:rStyle w:val="PwndocLink"/>
+        <w:shd w:val="clear" w:color="auto" w:fill="auto"/> <!-- Remove any shading -->
+    </w:rPr><w:t>${entityencodedvector}</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/>
+</w:r></w:p>`;
+        
+}
+
 expressions.filters.cveSlider = function(input, score) {
     score = typeof score == 'object' ? score.value : score;
     score = typeof score == "String" ? parseInt(score) : score;
