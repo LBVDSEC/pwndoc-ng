@@ -408,10 +408,10 @@ function html2ooxml(html, style = "", listIds = []) {;
             "img",
             //"code",
             "legend",
-            // "table",  // CUSTOM ADDITION
-            // "tr",  // CUSTOM ADDITION
-            // "th",  // CUSTOM ADDITION 
-            // "td",  // CUSTOM ADDITION
+            "table",
+            "tr",
+            "th", 
+            "td",
             "li"
           ].includes(tag)) {
 
