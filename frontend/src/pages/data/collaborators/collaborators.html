@@ -102,6 +102,19 @@
                           Edit
                         </q-tooltip>
                       </q-btn>
+                      <!-- BEGIN CUSTOM ADDITION -->
+                      <q-btn
+                        size="sm"
+                        flat
+                        color="negative"
+                        icon="fa fa-trash"
+                        @click="confirmDeleteCollab(props.row)"
+                      >
+                        <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">
+                        {{ $t('tooltip.delete') }}
+                        </q-tooltip>
+                      </q-btn>
+                      <!-- END CUSTOM ADDITION -->
                     </q-td>
                   </template>
                   

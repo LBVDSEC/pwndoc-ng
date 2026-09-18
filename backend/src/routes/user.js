@@ -344,17 +344,14 @@ module.exports = function(app) {
     });
 
     // Delete any user (admin only)
-    /** Removed to keep linked references to user, disable user only for now
+    /** Removed to keep linked references to user, disable user only for now **/
+    // CUSTOM ADDITION: re-enabled this. Replace user with 'deleted user'-user for traceability.
     app.delete("/api/users/:id", acl.hasPermission('users:delete'), function(req, res) {
-        User.deleteOne({_id: req.params.id})
-        .then(msg => {
-            if (msg.n === 0)
-                throw ({fn: 'NotFound', message: 'User not found'});
-            else
-                Response.Ok(res, 'User deleted successfully');
-        })
+        User.delete(req.params.id)
+        .then(msg => Response.Ok(res, 'Client deleted successfully'))
         .catch(err => Response.Internal(res, err))
     });
+    /* END CUSTOM ADDITION
     app.delete("/api/users", acl.hasPermission('users:delete'), function(req, res) {
         User.deleteAll()
         .then(msg => Response.Ok(res, msg))

@@ -98,7 +98,7 @@ UserSchema.statics.create = function (users) {
 // Get all users
 UserSchema.statics.getAll = function () {
     return new Promise((resolve, reject) => {
-        var query = this.find();
+        var query = this.find({ username: { $ne: 'deleteduser' } }); // CUSTOM ADDITION: Do not select the 'deleteduser'-user.
         query.select('username firstname lastname email phone role totpEnabled enabled');
         query.exec()
         .then(function(rows) {
@@ -209,6 +209,75 @@ UserSchema.statics.updateUser = function (userId, user) {
         })
     })
 }
+
+// CUSTOM ADDITION: Delete user
+UserSchema.statics.delete = async function (userId) {
+    const replacementUser = await this.findOneAndUpdate(
+        { username: "deleteduser" },
+        {
+            $setOnInsert: {
+                username: "deleteduser",
+                firstname: "Deleted",
+                lastname: "User"
+            }
+        },
+        {
+            new: true,
+            upsert: true
+        }
+    );
+
+    var Vulnerability = mongoose.model('Vulnerability');
+    await Vulnerability.updateMany(
+        { creator: userId },
+        { $set: { creator: replacementUser._id } }
+    );
+
+    var VulnerabilityUpdate = mongoose.model('VulnerabilityUpdate');
+    await VulnerabilityUpdate.updateMany(
+        { creator: userId },
+        { $set: { creator: replacementUser._id } }
+    );
+
+    var Audit = mongoose.model('Audit');
+    await Audit.updateMany(
+        { collaborators: userId },
+        { $set: { "collaborators.$[user]": replacementUser._id } },
+        { arrayFilters: [{ user: userId }] }
+    );
+
+    await Audit.updateMany(
+        { reviewers: userId },
+        { $set: { "reviewers.$[user]": replacementUser._id } },
+        { arrayFilters: [{ user: userId }] }
+    );
+
+    await Audit.updateMany(
+        { creator: userId },
+        { $set: { creator: replacementUser._id } }
+    );
+
+    await Audit.updateMany(
+        { approvals: userId },
+        { $set: { "approvals.$[user]": replacementUser._id } },
+        { arrayFilters: [{ user: userId }] }
+    );
+
+    const deletedUser = await this.findOneAndDelete({
+        _id: userId,
+        username: { $ne: "deleteduser" }
+    });
+
+    if (!deletedUser) {
+        throw {
+            fn: "NotFound",
+            message: "User Id not found"
+        };
+    }
+
+    return deletedUser;
+};
+// END CUSTOM ADDITION
 
 // Update refreshtoken
 UserSchema.statics.updateRefreshToken = function (refreshToken, userAgent) {

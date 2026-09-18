@@ -149,6 +149,39 @@ export default {
             })
         },
 
+        // BEGIN CUSTOM ADDITION
+        deleteCollab: function(collabId) {
+            CollabService.deleteCollab(collabId)
+            .then(() => {
+                this.getCollabs();
+                Notify.create({
+                    message: $t('msg.collabDeletedOk'),
+                    color: 'positive',
+                    textColor:'white',
+                    position: 'top-right'
+                })
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response.data.datas,
+                    color: 'negative',
+                    textColor:'white',
+                    position: 'top-right'
+                })
+            })
+        },
+
+        confirmDeleteCollab: function(collab) {
+            Dialog.create({
+                title: $t('msg.confirmSuppression'),
+                message: `${$t('collaborator')} «${collab.firstname} ${collab.lastname}» ${$t('msg.deleteNotice')}`,
+                ok: {label: $t('btn.confirm'), color: 'negative'},
+                cancel: {label: $t('btn.cancel'), color: 'white'}
+            })
+            .onOk(() => this.deleteCollab(collab._id))
+        },
+        // END CUSTOM ADDITION
+
         getRoles: function() {
             DataService.getRoles()
             .then((data) => {
