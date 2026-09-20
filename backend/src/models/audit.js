@@ -100,10 +100,32 @@ AuditSchema.statics.getAudits = (isAdmin, userId, filters) => {
         query.populate('reviewers', 'username firstname lastname')
         query.populate('approvals', 'username firstname lastname')
         query.populate('company', 'name')
-        query.select('id name language creator collaborators company createdAt state')
+        query.select('id name language creator collaborators company createdAt state sections') // 'sections' CUSTOM ADDITION
         query.exec()
         .then((rows) => {
-            resolve(rows)
+            // BEGIN CUSTOM ADDITION
+            const result = rows.map((row) => {
+                const audit = row.toObject();
+
+                const validationSection = audit.sections?.find(
+                    (section) => section.field === 'validation'
+                );
+
+                const conclusionField = validationSection?.customFields?.find(
+                    (customField) =>
+                        customField.customField?.label === 'Conclusie'
+                );
+
+                audit.hertest =
+                    Boolean(conclusionField?.text?.trim());
+
+                delete audit.sections;
+
+                return audit;
+            });
+
+            resolve(result);
+            // END CUSTOM ADDITION (removed `resolve(rows)`)
         })
         .catch((err) => {
             reject(err)

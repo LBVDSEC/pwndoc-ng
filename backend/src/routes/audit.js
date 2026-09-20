@@ -49,6 +49,7 @@ module.exports = function(app, io) {
                     a.reviewers = audit.reviewers
                     a.approvals = audit.approvals
                     a.state = audit.state
+                    a.hertest = audit.hertest  // CUSTOM ADDITION
                     if (acl.isAllowed(req.decodedToken.role, 'audits:users-connected')){
                         a.connected = getUsersRoom(audit._id.toString())
                     }

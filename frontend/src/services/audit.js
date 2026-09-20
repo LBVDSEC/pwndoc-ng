@@ -6,12 +6,14 @@ export default {
     if (filters) {
       if (filters.findingTitle) {
         queryParams += `findingTitle=${filters.findingTitle}`;
-      }
+      } 
+      // BEGIN CUSTOM ADDITION
       if (filters.summaryContent) {
         if (queryParams.length > 1)
           queryParams += '&';
         queryParams += `summaryContent=${filters.summaryContent}`;
       }
+      // END CUSTOM ADDITION
     }
     return  api.get(`audits${queryParams}`)
   },

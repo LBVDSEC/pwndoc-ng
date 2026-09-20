@@ -36,6 +36,7 @@
                   <q-icon v-if="search.finding" name="cancel" @click.stop="search.finding = null; getAudits()" class="cursor-pointer" />
                 </template>
               </q-input>
+              <!-- BEGIN CUSTOM ADDITION -->
               <q-input
                   class="col-md-3 q-pr-sm"
                   :label="$t('searchConclusions')"
@@ -48,9 +49,13 @@
                   <q-icon v-if="search.summary" name="cancel" @click.stop="search.summary = null; getAudits()" class="cursor-pointer" />
                 </template>
               </q-input>
+              <!-- END CUSTOM ADDITION -->
               <q-toggle :label="$t('myAudits')" v-model="myAudits" />
               <q-toggle v-if="UserService.isAllowed('audits:users-connected')" :label="$t('usersConnected')" v-model="displayConnected" />
               <q-toggle v-if="$settings.reviews.enabled && (UserService.isAllowed('audits:review') || UserService.isAllowed('audits:review-all'))" :label="$t('awaitingMyReview')" v-model="displayReadyForReview" />
+              <!-- BEGIN CUSTOM ADDITION -->
+              <q-toggle :label="$t('validationTestDone')" v-model="validationTestDone" /> 
+              <!-- END CUSTOM ADDITION -->
               <q-space />
               <q-btn 
               color="secondary"

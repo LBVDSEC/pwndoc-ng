@@ -54,10 +54,11 @@ export default {
                 {label:'All', value:0}
             ],
             // Search filter
-            search: {finding: '', summary: '', name: '', language: '', company: '', users: '', date: ''},
+            search: {finding: '', summary: '', name: '', language: '', company: '', users: '', date: ''},  // 'summary' CUSTOM ADDITION
             myAudits: false,
             displayConnected: false,
             displayReadyForReview: false,
+            validationTestDone: false,  // CUSTOM ADDITION
             // Errors messages
             errors: {name: '', language: '', auditType: '', selectedAudit: ''},
             // Selected or New Audit
@@ -78,7 +79,7 @@ export default {
 
     mounted: function() {
         this.search.finding = this.$route.params.finding;
-        this.search.summary = this.$route.params.summary;
+        this.search.summary = this.$route.params.summary;  // CUSTOM ADDITION
 
         if (this.UserService.isAllowed('audits:users-connected'))
             this.visibleColumns.push('connected')
@@ -153,7 +154,7 @@ export default {
 
         getAudits: function() {
             this.loading = true
-            AuditService.getAudits({findingTitle: this.search.finding, summaryContent: this.search.summary})
+            AuditService.getAudits({findingTitle: this.search.finding, summaryContent: this.search.summary})  // 'summaryContent' CUSTOM ADDITION
             .then((data) => {
                 this.audits = data.data.datas
       
@@ -385,7 +386,8 @@ export default {
                     date.indexOf(dateTerm) > -1 &&
                     ((this.myAudits && users.indexOf(username) > -1) || !this.myAudits) &&
                     ((this.displayConnected && row.connected && row.connected.length > 0) || !this.displayConnected) &&
-                    ((this.displayReadyForReview && users.indexOf(username) < 0 && row.state === 'REVIEW') || !this.displayReadyForReview)
+                    ((this.displayReadyForReview && users.indexOf(username) < 0 && row.state === 'REVIEW') || !this.displayReadyForReview) &&  // '&&' CUSTOM ADDITION
+                    ((this.validationTestDone && row.hertest) || !this.validationTestDone)  // CUSTOM ADDITION
             })
         },
 

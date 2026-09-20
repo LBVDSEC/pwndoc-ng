@@ -525,6 +525,7 @@ export default {
     myAudits: 'My Audits',
     usersConnected: 'Users Connected',
     awaitingMyReview: 'Awaiting my review',
+    validationTestDone: 'Validation done',
     newAudit: 'New Audit',
     cloneExistingReport: 'Clone existing report',
     selectAuditToClone: 'Select audit to clone',
