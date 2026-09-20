@@ -521,6 +521,7 @@ export default {
     noAudit: 'No Audit Types are defined.  Please create Audit Types in ',
     auditTypes: 'Audit Types',
     searchFinds: 'Search Finding',
+    searchConclusions: 'Search Conclusions',
     myAudits: 'My Audits',
     usersConnected: 'Users Connected',
     awaitingMyReview: 'Awaiting my review',

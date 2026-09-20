@@ -3,9 +3,16 @@ import { api } from 'boot/axios'
 export default {
   getAudits: function(filters) {
     var queryParams = "?";
-    if (filters)
-      if (filters.findingTitle)
+    if (filters) {
+      if (filters.findingTitle) {
         queryParams += `findingTitle=${filters.findingTitle}`;
+      }
+      if (filters.summaryContent) {
+        if (queryParams.length > 1)
+          queryParams += '&';
+        queryParams += `summaryContent=${filters.summaryContent}`;
+      }
+    }
     return  api.get(`audits${queryParams}`)
   },
 

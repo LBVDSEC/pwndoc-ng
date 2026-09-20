@@ -21,6 +21,18 @@ module.exports = function(app, io) {
         var filters = {};
         if (req.query.findingTitle)
             filters['findings.title'] = new RegExp(utils.escapeRegex(req.query.findingTitle), 'i')
+        if (req.query.summaryContent) {
+            filters.sections = {
+                $elemMatch: {
+                    field: 'summary',
+                    customFields: {
+                        $elemMatch: {
+                            text: new RegExp(utils.escapeRegex(req.query.summaryContent), 'i')
+                        }
+                    }
+                }
+            };
+        }
 
         Audit.getAudits(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.decodedToken.id, filters)
         .then(msg => {
