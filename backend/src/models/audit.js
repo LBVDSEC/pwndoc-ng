@@ -210,9 +210,16 @@ AuditSchema.statics.create = (audit, userId) => {
                 var auditTypeTemplate = row.templates.find(e => e.locale === audit.language)
                 if (auditTypeTemplate)
                     audit.template = auditTypeTemplate.template
+
+                // BEGIN CUSTOM ADDITION
                 var auditTypeValidationTemplate = row.validationtemplates.find(e => e.locale === audit.language)
                 if (auditTypeValidationTemplate)
                     audit.validationtemplate = auditTypeValidationTemplate.template
+                var auditTypeManagementTemplate = row.managementtemplates.find(e => e.locale === audit.language)
+                if (auditTypeManagementTemplate)
+                    audit.managementtemplate = auditTypeManagementTemplate.template
+                // END CUSTOM ADDITION
+                
                 var Section = mongoose.model('CustomSection')
                 var CustomField = mongoose.model('CustomField')
                 var promises = []

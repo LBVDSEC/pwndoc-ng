@@ -40,6 +40,12 @@
                   <i class="fa fa-download fa-lg"></i>
                 </q-btn>
               </q-item-section>
+              <q-item-section side class="topButtonSection">
+                <q-btn flat color="warning" @click="generateManagementReport">
+                  <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.downloadManagementReport')}}</q-tooltip>
+                  <i class="fa fa-download fa-lg"></i>
+                </q-btn>
+              </q-item-section>
             </q-item>
   
             <q-item :to='"/audits/"+auditId+"/general"'>
@@ -770,6 +776,52 @@ export default defineComponent({
         group: false
       })
       AuditService.generateAuditValidationReport(this.auditId)
+      .then(response => {
+        var blob = new Blob([response.data], {type: "application/octet-stream"});
+        var link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = decodeURIComponent(response.headers['content-disposition'].split('"')[1]);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        downloadNotif({
+          icon: 'done',
+          spinner: false,
+          message: 'Report successfully generated',
+          color: 'green',
+          timeout: 2500
+        })
+      })
+      .catch( async err => {
+        var message = "Error generating template"
+        if (err.response && err.response.data) {
+          var blob = new Blob([err.response.data], {type: "application/json"})
+          var blobData = await this.BlobReader(blob)
+          message = JSON.parse(blobData).datas
+        }
+        downloadNotif()
+        Notify.create({
+          message: message,
+          type: 'negative',
+          textColor:'white',
+          position: 'top',
+          closeBtn: true,
+          timeout: 0,
+          classes: "text-pre-wrap"
+        })
+      })
+    },
+
+    generateManagementReport: function() {
+      const downloadNotif = Notify.create({
+        spinner: QSpinnerGears,
+        message: 'Generating the Report',
+        color: "blue",
+        timeout: 0,
+        group: false
+      })
+      AuditService.generateAuditManagementReport(this.auditId)
       .then(response => {
         var blob = new Blob([response.data], {type: "application/octet-stream"});
         var link = document.createElement('a');

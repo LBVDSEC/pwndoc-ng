@@ -30,7 +30,7 @@ var globalBulletNumId = null // Global variable to store dynamic bullet ID
 const encodeHTMLEntities = s => s.replace(/[\u00A0-\u9999<>&]/g, i => '&#'+i.charCodeAt(0)+';')
 
 // Generate document with docxtemplater
-async function generateDoc(audit, validationreport=false) {
+async function generateDoc(audit, validationreport=false, managementreport=false) {  // validationreport and managementreport are CUSTOM ADDITIONs, not the most beautiful way to implement this but it works.
 
     // Reset global variables for each document generation
     globalAbstractNumId = null;
@@ -38,9 +38,13 @@ async function generateDoc(audit, validationreport=false) {
     bulletDefinitionCreated = false;
     globalBulletNumId = null;
 
+    // BEGIN CUSTOM ADDITION
     if (validationreport)
         var templatePath = `${__basedir}/../report-templates/${audit.validationtemplate.name}.${audit.validationtemplate.ext || 'docx'}`
+    else if (managementreport)
+        var templatePath = `${__basedir}/../report-templates/${audit.managementtemplate.name}.${audit.managementtemplate.ext || 'docx'}`
     else
+    // END CUSTOM ADDITION
         var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${audit.template.ext || 'docx'}`
     var content = fs.readFileSync(templatePath, "binary");
 

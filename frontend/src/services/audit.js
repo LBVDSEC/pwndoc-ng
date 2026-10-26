@@ -82,10 +82,16 @@ export default {
     return  api.get(`audits/${auditId}/generate`, {responseType: 'blob'})
   },
 
+  // BEGIN CUSTOM ADDITION
   generateAuditValidationReport: function(auditId) {
-    return Vue.prototype.$axios.get(`audits/${auditId}/generate/validation`, {responseType: 'blob'})
+    return api.get(`audits/${auditId}/generate/validation`, {responseType: 'blob'})
   },
 
+  generateAuditManagementReport: function(auditId) {
+    return api.get(`audits/${auditId}/generate/management`, {responseType: 'blob'})
+  },
+  // END CUSTOM ADDITION
+  
   updateAuditSortFindings: function(auditId, audit) {
     return  api.put(`audits/${auditId}/sortfindings`, audit)
   },

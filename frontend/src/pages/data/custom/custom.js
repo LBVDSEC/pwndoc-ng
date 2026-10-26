@@ -18,6 +18,7 @@ export default {
             Utils: Utils,
             templates: [],
             validationtemplates: [],
+            managementtemplates: [],
 
             languages: [],
             newLanguage: {locale: "", language: ""},
@@ -25,7 +26,7 @@ export default {
             editLanguage: false,
 
             auditTypes: [],
-            newAuditType: {name: "", templates: [], validationtemplates: [], sections: [], hidden: []},
+            newAuditType: {name: "", templates: [], validationtemplates: [], managementtemplates: [], sections: [], hidden: []},
             editAuditTypes: [],
             editAuditType: false,
 
@@ -244,6 +245,7 @@ export default {
                 this.newAuditType.name = "";
                 this.newAuditType.templates = [];
                 this.newAuditType.validationtemplates = [];
+                this.newAuditType.managementtemplates = [];
                 this.newAuditType.sections = [];
                 this.newAuditType.hidden = [];
                 this.getAuditTypes();

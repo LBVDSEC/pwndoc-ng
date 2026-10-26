@@ -1,6 +1,7 @@
 {
     "auditBaseName": "Testreport",
     "validationBaseName": "Validationreport",
+    "managementBaseName": "Managementreport",
 
     "targetTableName": "Targets",
     "fromTo": "to"

@@ -39,6 +39,7 @@ export default {
         editAudit: 'Edit Audit',
         downloadReport: 'Download Report',
         downloadValidationReport: 'Download Validation Report',
+        downloadManagementReport: 'Download Management Report',
         deleteAudit: 'Delete Audit',
         topButtonSection: {
             submitReview: 'Mark audit as ready for review',
@@ -592,6 +593,8 @@ export default {
     affectedAssets: 'Affected Assets',
     courseOfActions: 'Course of actions',
     template: 'Template',
+    validationtemplate: 'Validation Template',
+    managementtemplate: 'Management Template',
     client: 'Client',
     reviewers: 'Reviewers',
     collaborator: 'Collaborator',

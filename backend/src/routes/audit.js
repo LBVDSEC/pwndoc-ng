@@ -231,6 +231,8 @@ module.exports = function(app, io) {
         }
         if (req.body.scopeMode) update.scopeMode = req.body.scopeMode;
         if (req.body.template) update.template = req.body.template;
+        if (req.body.validationtemplate) update.validationtemplate = req.body.validationtemplate;  // CUSTOM ADDITION
+        if (req.body.managementtemplate) update.managementtemplate = req.body.managementtemplate;  // CUSTOM ADDITION
         if (req.body.customFields) update.customFields = req.body.customFields;
         if (settings.reviews.enabled && settings.reviews.private.removeApprovalsUponUpdate) update.approvals = [];
 

@@ -10,7 +10,8 @@ var Template = {
 var AuditTypeSchema = new Schema({
     name:   {type: String, unique: true},
     templates: [Template],
-    validationtemplates: [Template],
+    validationtemplates: [Template],  // CUSTOM ADDITION
+    managementtemplates: [Template],  // CUSTOM ADDITION
     sections: [{type: String, ref: 'CustomSection'}],
     hidden: [{type: String, enum: ['network', 'findings']}]
 }, {timestamps: true});
@@ -23,7 +24,7 @@ var AuditTypeSchema = new Schema({
 AuditTypeSchema.statics.getAll = () => {
     return new Promise((resolve, reject) => {
         var query = AuditType.find();
-        query.select('-_id name templates validationtemplates sections hidden')
+        query.select('-_id name templates validationtemplates managementtemplates sections hidden')  // validationtemplates managementtemplates CUSTOM ADDITION
         query.exec()
         .then((rows) => {
             resolve(rows);
@@ -38,7 +39,7 @@ AuditTypeSchema.statics.getAll = () => {
 AuditTypeSchema.statics.getByName = (name) => {
     return new Promise((resolve, reject) => {
         var query = AuditType.findOne({name: name});
-        query.select('-_id name templates validationtemplates sections hidden')
+        query.select('-_id name templates validationtemplates managementtemplates sections hidden')  // validationtemplates managementtemplates CUSTOM ADDITION
         query.exec()
         .then((rows) => {
             resolve(rows);

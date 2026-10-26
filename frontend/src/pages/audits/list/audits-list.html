@@ -140,8 +140,8 @@
                   </q-card-section>
               
                   <q-card-actions align="right">
-                    <q-btn flat label="Annuler" color="primary" v-close-popup />
-                    <q-btn color="secondary" label="Créer" @click="createAudit" />
+                    <q-btn flat :label="$t('cancel')" color="primary" v-close-popup />
+                    <q-btn color="secondary" :label="$t('create')" @click="createAudit" />
                   </q-card-actions>
                 </q-card>
               </q-dialog>

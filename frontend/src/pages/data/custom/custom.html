@@ -190,6 +190,8 @@
                                                 {{language.language}} {{$t('template')}} <span class="text-red">*</span>
                                             </template>
                                         </q-select>
+
+                                        <!-- BEGIN CUSTOM ADDITION -->
                                         <q-select 
                                         ref="validate-auditType-template"
                                         v-model="newAuditType.validationtemplates[idx]" 
@@ -204,9 +206,28 @@
                                         lazy-rules="ondemand"
                                         >
                                             <template v-slot:label>
-                                                {{language.language}} Validation {{$t('template')}} <span class="text-red">*</span>
+                                                {{language.language}} {{$t('validationtemplate')}} <span class="text-red">*</span>
                                             </template>
                                         </q-select>
+                                        <q-select 
+                                        ref="validate-auditType-template"
+                                        v-model="newAuditType.managementtemplates[idx]" 
+                                        label-slot
+                                        :options="getTemplateOptionsLanguage(language.locale)" 
+                                        option-value="template"
+                                        option-label="name" 
+                                        options-sanitize
+                                        map-options
+                                        outlined
+                                        :rules="[val => !!val || 'Field is required']"
+                                        lazy-rules="ondemand"
+                                        >
+                                            <template v-slot:label>
+                                                {{language.language}} {{$t('managementtemplate')}} <span class="text-red">*</span>
+                                            </template>
+                                        </q-select>
+                                        <!-- END CUSTOM ADDTION -->
+
                                     </div>
                                 </q-item-section>
                             </q-item>
@@ -279,11 +300,13 @@
                                                         options-sanitize
                                                         outlined
                                                         />
+
+                                                        <!-- BEGIN CUSTOM ADDITION -->
                                                         <q-select 
                                                         v-if="auditType.validationtemplates && auditType.validationtemplates[idx]"
                                                         readonly
                                                         v-model="auditType.validationtemplates[idx].template"
-                                                        :label="`${language.language} Validation ${$t('template')}`"
+                                                        :label="`${language.language} ${$t('validationtemplate')}`"
                                                         :options="templates" 
                                                         option-value="_id"
                                                         option-label="name"
@@ -291,6 +314,20 @@
                                                         options-sanitize
                                                         outlined
                                                         />
+                                                        <q-select 
+                                                        v-if="auditType.managementtemplates && auditType.managementtemplates[idx]"
+                                                        readonly
+                                                        v-model="auditType.managementtemplates[idx].template"
+                                                        :label="`${language.language} ${$t('managementtemplate')}`"
+                                                        :options="templates" 
+                                                        option-value="_id"
+                                                        option-label="name"
+                                                        map-options 
+                                                        options-sanitize
+                                                        outlined
+                                                        />
+                                                        <!-- END CUSTOM ADDITION -->
+
                                                     </div>
                                                 </q-item-section>
                                             </q-item>
@@ -430,7 +467,7 @@
                                                     lazy-rules="ondemand"
                                                   >
                                                     <template v-slot:label>
-                                                      {{ language.language }} Validation {{ $t('template') }} <span class="text-red">*</span>
+                                                      {{ language.language }} {{ $t('validationtemplate') }} <span class="text-red">*</span>
                                                     </template>
                                                   </q-select>
                                                   <!-- needed for updating old Audit Types without validationtemplates -->
@@ -449,10 +486,50 @@
                                                     lazy-rules="ondemand"
                                                   >
                                                     <template v-slot:label>
-                                                      {{ language.language }} Validation {{ $t('template') }} <span class="text-red">*</span>
+                                                      {{ language.language }} {{ $t('validationtemplate') }} <span class="text-red">*</span>
+                                                    </template>
+                                                  </q-select>
+
+                                                  <q-select 
+                                                    ref="validate-managementtemplate-edit"
+                                                    v-if="auditType.managementtemplates[idx]"
+                                                    v-model="auditType.managementtemplates[idx].template" 
+                                                    label-slot
+                                                    :options="getTemplateOptionsLanguage(language.locale)" 
+                                                    option-value="template"
+                                                    option-label="name" 
+                                                    options-sanitize
+                                                    map-options
+                                                    emit-value
+                                                    outlined
+                                                    :rules="[val => !!val || 'Field is required']"
+                                                    lazy-rules="ondemand"
+                                                  >
+                                                    <template v-slot:label>
+                                                      {{ language.language }} {{ $t('managementtemplate') }} <span class="text-red">*</span>
+                                                    </template>
+                                                  </q-select>
+                                                  <!-- needed for updating old Audit Types without managementtemplates -->
+                                                  <q-select 
+                                                    v-else
+                                                    ref="validate-managementtemplate-edit2"
+                                                    v-model="auditType.managementtemplates[idx]" 
+                                                    label-slot
+                                                    :options="getTemplateOptionsLanguage(language.locale)" 
+                                                    option-value="template"
+                                                    option-label="name" 
+                                                    options-sanitize
+                                                    map-options
+                                                    outlined
+                                                    :rules="[val => !!val || 'Field is required']"
+                                                    lazy-rules="ondemand"
+                                                  >
+                                                    <template v-slot:label>
+                                                      {{ language.language }} {{ $t('managementtemplate') }} <span class="text-red">*</span>
                                                     </template>
                                                   </q-select>
                                                   <!-- END CUSTOM ADDITION -->
+                                                   
                                                 </div>
                                               </q-item-section>
                                             </q-item>
