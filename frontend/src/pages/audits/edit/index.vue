@@ -225,7 +225,7 @@
                             square
                             :style="`background: ${getFindingColor(finding)}`"
                           >
-                            {{ getFindingCvssScoreForDisplay(finding) }}  // CUSTOM ADDITION: Changed from letter to actual score
+                            {{ getFindingCvssScoreForDisplay(finding) }}  <!-- CUSTOM ADDITION: Changed from letter to actual score -->
                           </q-chip>
                         </q-item-section>
                         <q-item-section>
